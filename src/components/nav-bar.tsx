@@ -21,7 +21,7 @@ export default function NavBar() {
                 />
                 <NavbarBrand>
                     <img src="/caye-pc.png" width='50px' alt="logo" />
-                    <p className="font-bold text-inherit">Caye's Portfolio</p>
+										<p className="font-bold text-inherit">Caye&apos;s Portfolio</p>
                 </NavbarBrand>
             </NavbarContent>
             <NavbarContent className="hidden sm:flex gap-5" justify="center">

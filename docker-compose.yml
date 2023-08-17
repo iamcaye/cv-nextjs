@@ -1,0 +1,9 @@
+version: "3.9"
+
+services:
+  cv-next-front: 
+    container_name: cv-next-front
+    build:
+      context: .
+    ports:
+      - 80:3000
