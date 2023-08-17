@@ -1,0 +1,1 @@
+export type ICodingLanguage = "python"|"javascript"|"c-sharp-logo"|"angularjs"|"nodejs"|"typescript";
