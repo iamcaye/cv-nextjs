@@ -1,9 +1,13 @@
 'use client'
-import {Card, CardHeader, CardBody, CardFooter } from "@nextui-org/react";
+import {Card, CardHeader, CardBody, CardFooter, useDisclosure, Button, Modal, ModalHeader, ModalBody, ModalContent } from "@nextui-org/react";
 import { ICodingLanguage } from "@/models/CodingLanguage";
 import CodingLanguage from "./coding-languages";
 
-export default function CardComponent ({ title, children, languages } : {title:string, children:React.ReactNode, languages: ICodingLanguage[]}) {
+export default function CardComponent (
+    { title, children, languages, moreInfoComponent } :
+    {title:string, children:React.ReactNode, languages: ICodingLanguage[], moreInfoComponent?: React.ReactNode}) {
+
+    const { isOpen, onOpen, onOpenChange } = useDisclosure()
 
     return (
         <Card className="py-4">
@@ -13,9 +17,29 @@ export default function CardComponent ({ title, children, languages } : {title:s
             <CardBody className="overflow-visible py-2">
                 {children}
             </CardBody>
-            <CardFooter className="ml-3 flex flex-col lg:flex-row">
+            <CardFooter className="ml-3 flex flex-col lg:flex-row gap-2">
                 <CodingLanguage languages={languages} />
-                <a className="m-1 p-1 hover:border-2 rounded-md lg:self-end" href="">More info<i className="ml-2 bi bi-info-circle"></i></a>
+                { moreInfoComponent && 
+                    <>
+                        <Button onPress={onOpen} className="m-1 p-2 hover:bg-slate-200 rounded-md lg:self-end">
+                            More info<i className="bi bi-info-circle"></i>
+                        </Button>
+                        <Modal isOpen={isOpen} size="3xl" onOpenChange={onOpenChange}>
+                            <ModalContent>
+                                {(onClose) => (
+                                    <>
+                                        <ModalBody>
+                                            {moreInfoComponent}
+                                        </ModalBody>
+                                        <Button color="danger" variant="light" onClick={onClose}>
+                                            Close
+                                        </Button>
+                                    </>
+                                )}
+                            </ModalContent>
+                        </Modal>
+                    </>
+                }
             </CardFooter>
         </Card>
     );
