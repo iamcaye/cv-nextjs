@@ -1,7 +1,6 @@
 export default function TDInfo () {
     return (
         <>
-            <h1 className="text-center">TOPdigital Work Experience</h1>
             <article>
                 <header className="flex flex-col gap-3">
                     <p>
@@ -19,7 +18,7 @@ export default function TDInfo () {
                         learn the most and also gave me the opportunity to <b>talk with the client</b>, understand their needs and also help them making decisions about the course of the project.
                     </p>
                     <p>
-                        Finally I've enter into another group that is working on a sale tool for another client. This project is using <b>Angular 15</b> and <b>Express.ts.</b>
+                        Finally I&apos;ve enter into another group that is working on a sale tool for another client. This project is using <b>Angular 15</b> and <b>Express.ts.</b>
                         I still have other tasks with the previous projects but right now this is my main project.
                     </p>
                 </header>

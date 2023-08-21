@@ -24,10 +24,11 @@ export default function CardComponent (
                         <Button onPress={onOpen} className="m-1 p-2 hover:bg-slate-200 rounded-md lg:self-end">
                             More info<i className="bi bi-info-circle"></i>
                         </Button>
-                        <Modal isOpen={isOpen} size="3xl" onOpenChange={onOpenChange}>
+                        <Modal isOpen={isOpen} scrollBehavior="inside" size="3xl" onOpenChange={onOpenChange}>
                             <ModalContent>
                                 {(onClose) => (
                                     <>
+                                        <ModalHeader>TOPdigital {title}</ModalHeader>
                                         <ModalBody>
                                             {moreInfoComponent}
                                         </ModalBody>
