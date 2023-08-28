@@ -5,7 +5,7 @@ import CodingLanguage from "./coding-languages";
 
 export default function CardComponent (
     { title, children, languages, moreInfoComponent } :
-    {title:string, children:React.ReactNode, languages: ICodingLanguage[], moreInfoComponent?: React.ReactNode}) {
+    {title:string, children?:React.ReactNode, languages?: ICodingLanguage[], moreInfoComponent?: React.ReactNode}) {
 
     const { isOpen, onOpen, onOpenChange } = useDisclosure()
 
@@ -18,7 +18,7 @@ export default function CardComponent (
                 {children}
             </CardBody>
             <CardFooter className="ml-3 flex flex-col lg:flex-row gap-2">
-                <CodingLanguage languages={languages} />
+                { languages && <CodingLanguage languages={languages} /> }
                 { moreInfoComponent && 
                     <>
                         <Button onPress={onOpen} className="m-1 p-2 hover:bg-slate-200 rounded-md lg:self-end">
