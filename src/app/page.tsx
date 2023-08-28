@@ -1,6 +1,7 @@
 'use client'
 import CardComponent from "@/components/card-component";
 import NavBar from "@/components/nav-bar";
+import GitProjects from "@/pages/git-projects";
 import SkillsComponent from "@/pages/skills";
 import TDInfo from "@/pages/td-info";
 import WorkExperience from "@/pages/work-experience";
@@ -20,6 +21,7 @@ export default function Home() {
 
         <WorkExperience />
         <SkillsComponent />
+        <GitProjects />
       </main>
     </>
   )
