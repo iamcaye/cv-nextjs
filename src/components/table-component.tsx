@@ -38,7 +38,7 @@ export default function TableComponent( { rows, columns }: { rows: any[], column
                 >
                 <TableHeader>
                     {columns.map((columnKey) => (
-                    <TableColumn key={columnKey}><p className="capitalize text-xl">{columnKey}</p></TableColumn>
+                    <TableColumn key={columnKey}><p className="capitalize text-xl text-center">{columnKey}</p></TableColumn>
                     ))}
                 </TableHeader>
                 <TableBody items={items}>

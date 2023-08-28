@@ -86,10 +86,10 @@ export default function SkillsComponent() {
     return (
         <section className="pt-10">
             <header>
-                <h1 className="border-b-2 p-0"> Skills </h1>
+                <h1 className="text-center p-0"> Skills </h1>
             </header>
 
-            <div className="max-w-full md:max-w-6xl lg:max-w-8xl flex flex-wrap justify-center align-middle gap-8 p-5">
+            <div className="max-w-full md:max-w-6xl lg:max-w-8xl flex flex-wrap justify-center align-middle gap-5 py-5">
                 {skills.map((skill: Skill, index:number) => (
                     <SkillCardComponent key={index} skill={skill} />
                 ))}
