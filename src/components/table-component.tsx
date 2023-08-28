@@ -48,6 +48,7 @@ export default function TableComponent( { rows, columns }: { rows: any[], column
                             <TableCell>
                                 {columnKey !== "name" && item[columnKey] } 
                                 {columnKey === "name" && item[columnKey] && <a className="font-bold cursor-pointer" href={item.html_url}>{item[columnKey]}</a> }
+                                {!item[columnKey] && ` -- No ${columnKey} --`}
                             </TableCell>}
                     </TableRow>
                     )}

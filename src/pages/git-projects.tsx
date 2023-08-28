@@ -7,7 +7,10 @@ export default function GitProjects () {
     useEffect(() => {
         fetch("https://api.github.com/users/iamcaye/repos")
             .then(response => response.json())
-            .then(data => setRepos(data))
+            .then((data) => {
+                setRepos(data.sort((a:any, b:any) => a.updated_at < b.updated_at ? 1 : -1));
+                console.log(data)
+            })
             .catch(error => console.log(error))
     }, [])
 
