@@ -15,7 +15,7 @@ export default function GitProjects () {
     }, [])
 
     return (
-        <div className="pt-10">
+        <div className="pt-10 sm:hidden">
             <h1 className="text-center mb-5">Git Projects</h1>
             <TableComponent rows={repos} columns={["name", "description", "language"]} />
         </div>
