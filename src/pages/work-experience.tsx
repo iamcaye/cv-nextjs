@@ -3,7 +3,7 @@ import TDInfo from "./td-info";
 
 export default function WorkExperience() {
   return (
-        <section className="pt-10 md:w-8/12 w-11/12">
+        <section className="pt-10">
           <CardComponent title="Work Experience" languages={['python', 'typescript', 'nodejs', "c-sharp-logo", "angularjs"]} 
             moreInfoComponent={<TDInfo/>}>
             <div className="flex-col flex lg:flex-row items-center lg:items-top justify-between">
