@@ -15,7 +15,7 @@ export default function WorkExperience() {
                   <li>Automation Scripting & Web Scraping - Selenium, HTML Agility Pack</li>
                 </ul>
               </section>
-              <img className="md:w-6/12 pt-3 w-8/12 sm:w-6/12 lg:w-4/12 lg:pt-0" src="https://grupotopdigital.es/wp-content/uploads/2021/07/logoH-2.png" alt="Grupo Topdgital" />
+              <img className="md:w-6/12 pt-3 w-8/12 sm:w-6/12 lg:w-4/12 lg:pt-0 max-w-[400px]" src="https://grupotopdigital.es/wp-content/uploads/2021/07/logoH-2.png" alt="Grupo Topdgital" />
             </div>
           </CardComponent>
         </section>

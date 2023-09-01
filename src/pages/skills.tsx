@@ -89,7 +89,7 @@ export default function SkillsComponent() {
                 <h1 className="text-center p-0 mb-5"> Skills </h1>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                 {skills.map((skill: Skill, index:number) => (
                     <SkillCardComponent key={index} skill={skill} />
                 ))}
