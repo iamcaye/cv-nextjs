@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <div className="flex flex-col justify-center align-middle">
       <NavBar />
-      <div className="self-center w-8/12 lg:w-8/12 xl:w-6/12">
+      <div className="self-center w-11/12 md:w-8/12 xl:w-6/12">
         <main className="w-full">
           <section>
             <h1 className="text-center">Hi I&apos;m Cayetano</h1>
