@@ -3,14 +3,19 @@ import {Card, CardHeader, CardBody, CardFooter, useDisclosure, Button, Modal, Mo
 import { ICodingLanguage } from "@/models/CodingLanguage";
 import CodingLanguage from "./coding-languages";
 
-export default function CardComponent (
-    { title, children, languages, moreInfoComponent } :
-    {title:string, children?:React.ReactNode, languages?: ICodingLanguage[], moreInfoComponent?: React.ReactNode}) {
+export default function CardComponent ( { title, children, languages, moreInfoComponent, shadow = "md" } :
+    {   
+        title:string,
+        children?:React.ReactNode,
+        languages?: ICodingLanguage[], 
+        moreInfoComponent?: React.ReactNode,
+        shadow?: "none" | "sm" | "md" | "lg";
+    }) {
 
     const { isOpen, onOpen, onOpenChange } = useDisclosure()
 
     return (
-        <Card className="py-4">
+        <Card className="py-4" shadow={shadow} >
             <CardHeader className="pt-2 px-4 flex-col items-start pb-2">
                 <p className="lg:text-medium text-tiny uppercase font-bold border-b-3 px-3 ">{title}</p>
             </CardHeader>
