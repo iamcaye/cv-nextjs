@@ -103,10 +103,10 @@ export default function SkillsComponent() {
             </div>
             <div className="md:hidden flex">
                 <Swiper
-                    style={{'color': '#fff'}}
                     pagination={{ clickable: true, dynamicBullets: true }}
                     slidesPerView={1}
                     spaceBetween={10}
+                    preventInteractionOnTransition={true}
                     modules={[Navigation, Pagination, Scrollbar, A11y, Thumbs]}
                 >
                 {skills.map((skill:Skill, index:number) => (
