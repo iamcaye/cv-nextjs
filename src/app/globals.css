@@ -22,3 +22,7 @@ body {
 .text-balanced {
   text-wrap: balance;
 }
+
+.swiper-pagination-bullet-active {
+     background-color: #f5a524 !important;
+}

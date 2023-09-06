@@ -18,7 +18,7 @@ export default function TableComponent( { rows, columns }: { rows: any[], column
     <div className="flex justify-center align-middle">
         {rows.length > 0 && 
             <Table 
-                className="w-full min-w-[800px]"
+                className="w-full"
                 aria-label="Example table with client side pagination"
                 bottomContent={
                     <div className="flex w-full justify-center">
@@ -29,6 +29,7 @@ export default function TableComponent( { rows, columns }: { rows: any[], column
                         page={page}
                         total={pages}
                         onChange={(page) => setPage(page)}
+                        color="warning"
                     />
                     </div>
                 }

@@ -1,6 +1,13 @@
-import CardComponent from "@/components/card-component";
 import SkillCardComponent from "@/components/skill-card";
 import Skill from "@/models/Skills";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Navigation, Pagination, Scrollbar, A11y, Thumbs } from 'swiper/modules';
+
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
+import 'swiper/css/scrollbar';
+import 'swiper/css/thumbs';
 
 export default function SkillsComponent() {
     const skills: Skill[] = [
@@ -89,10 +96,25 @@ export default function SkillsComponent() {
                 <h1 className="text-center p-0 mb-5"> Skills </h1>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            <div className="md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 hidden">
                 {skills.map((skill: Skill, index:number) => (
                     <SkillCardComponent key={index} skill={skill} />
                 ))}
+            </div>
+            <div className="md:hidden flex">
+                <Swiper
+                    style={{'color': '#fff'}}
+                    pagination={{ clickable: true, dynamicBullets: true }}
+                    slidesPerView={1}
+                    spaceBetween={10}
+                    modules={[Navigation, Pagination, Scrollbar, A11y, Thumbs]}
+                >
+                {skills.map((skill:Skill, index:number) => (
+                        <SwiperSlide key={index} className="my-4">
+                            <SkillCardComponent skill={skill} />
+                        </SwiperSlide>
+                ))}
+                </Swiper>
             </div>
         </section>
     )
