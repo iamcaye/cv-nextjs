@@ -10,7 +10,6 @@ export default function NavBar() {
 
     const menuItems = [
         "Home",
-        "Blog"
     ];
 
     return (
