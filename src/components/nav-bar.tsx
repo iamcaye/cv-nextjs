@@ -2,6 +2,7 @@
 
 import {Navbar, NavbarBrand, NavbarContent, NavbarItem, Link, Button, NavbarMenuToggle, NavbarMenu, NavbarMenuItem} from "@nextui-org/react";
 import { useState } from "react";
+import Footer from "./footer";
 
 
 export default function NavBar() { 
@@ -48,6 +49,9 @@ export default function NavBar() {
                     </Link>
                 </NavbarMenuItem>
                 ))}
+                <div className="flex flex-col justify-end h-full">
+                    <Footer />
+                </div>
             </NavbarMenu>
         </Navbar>
     );
