@@ -51,13 +51,14 @@ export default function SkillsComponent() {
             icon: "typescript"
         },
         {
-            name: "MySQL",
+            name: "Micro-Controllers & FPGA",
             comments: [
-                "Database design",
-                "Query optimization",
+                "Real-Time Operating Systems (FreeRTOS)",
+                "Communication protocols (SPI, I2C, UART)",
+                "Raspberry Pi, ESP32, ESP8266, MSP430, TM4C123G"
             ],
             experience: "4 years",
-            icon: "mysql"
+            icon: "raspberry-pi-zero"
         },
         {
             name: "Arduino",
@@ -70,14 +71,13 @@ export default function SkillsComponent() {
             icon: "arduino"
         },
         {
-            name: "Micro-Controllers & FPGA",
+            name: "MySQL",
             comments: [
-                "Real-Time Operating Systems (FreeRTOS)",
-                "Communication protocols (SPI, I2C, UART)",
-                "Raspberry Pi, ESP32, ESP8266, MSP430, TM4C123G"
+                "Database design",
+                "Query optimization",
             ],
             experience: "4 years",
-            icon: "raspberry-pi-zero"
+            icon: "mysql"
         },
         {
             name: "Docker",
@@ -87,6 +87,15 @@ export default function SkillsComponent() {
             ],
             experience: "4 years",
             icon: "docker"
+        },
+        {
+            name: "Go",
+            comments: [
+                "Beginner level",
+                "Focused on cli tools development",
+            ],
+            experience: "4 years",
+            icon: "golang"
         }
     ];
 
