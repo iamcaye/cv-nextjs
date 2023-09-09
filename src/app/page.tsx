@@ -14,7 +14,7 @@ export default function Home() {
       <div className="self-center w-11/12 md:w-8/12 xl:w-6/12">
         <main className="w-full">
           <section>
-            <h1 className="text-center">Hi I&apos;m Cayetano</h1>
+            <h1 className="text-center">Hi I&apos;m Cayetano Biehler</h1>
             <h1 className="text-orange-400 text-center text-balanced">Software Developer & Electronic Systems Engineer</h1>
           </section>
           <section className="pt-10">

@@ -1,11 +1,11 @@
 'use client'
 
-import {Navbar, NavbarBrand, NavbarContent, NavbarItem, Link, Button, NavbarMenuToggle, NavbarMenu, NavbarMenuItem} from "@nextui-org/react";
+import { Navbar, NavbarBrand, NavbarContent, NavbarItem, Link, Button, NavbarMenuToggle, NavbarMenu, NavbarMenuItem } from "@nextui-org/react";
 import { useState } from "react";
 import Footer from "./footer";
 
 
-export default function NavBar() { 
+export default function NavBar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const menuItems = [
@@ -21,7 +21,7 @@ export default function NavBar() {
                 />
                 <NavbarBrand>
                     <img src="/caye-pc.png" width='50px' alt="logo" />
-										<p className="font-bold text-inherit">Caye&apos;s Portfolio</p>
+                    <p className="font-bold text-inherit">Cayetano Biehler</p>
                 </NavbarBrand>
             </NavbarContent>
             <NavbarContent className="hidden sm:flex gap-5" justify="center">
@@ -35,18 +35,18 @@ export default function NavBar() {
             </NavbarContent>
             <NavbarMenu>
                 {menuItems.map((item, index) => (
-                <NavbarMenuItem key={`${item}-${index}`}>
-                    <Link
-                        className="w-full"
-                        color={
-                            index === 2 ? "warning" : "foreground"
-                        }
-                        href="#"
-                        size="lg"
-                    >
-                        {item}
-                    </Link>
-                </NavbarMenuItem>
+                    <NavbarMenuItem key={`${item}-${index}`}>
+                        <Link
+                            className="w-full"
+                            color={
+                                index === 2 ? "warning" : "foreground"
+                            }
+                            href="#"
+                            size="lg"
+                        >
+                            {item}
+                        </Link>
+                    </NavbarMenuItem>
                 ))}
                 <div className="flex flex-col justify-end h-full">
                     <Footer />
