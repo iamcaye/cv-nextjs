@@ -9,7 +9,8 @@ export default function NavBar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const menuItems = [
-        "Home",
+        { name: "Home", url: "/" },
+        { name: "Blog", url: "https://iamcaye.github.io" },
     ];
 
     return (
@@ -27,8 +28,8 @@ export default function NavBar() {
             <NavbarContent className="hidden sm:flex gap-5" justify="center">
                 {menuItems.map((item, index) => (
                     <NavbarItem key={`${item}-${index}`}>
-                        <Link color="foreground" href="#">
-                            {item}
+                        <Link color="foreground" href={item.url} size="lg" target={item.url.startsWith("http") ? "_blank" : ""}>
+                            {item.name}
                         </Link>
                     </NavbarItem>
                 ))}
@@ -41,10 +42,10 @@ export default function NavBar() {
                             color={
                                 index === 2 ? "warning" : "foreground"
                             }
-                            href="#"
+                            href={item.url}
                             size="lg"
                         >
-                            {item}
+                            {item.name}
                         </Link>
                     </NavbarMenuItem>
                 ))}

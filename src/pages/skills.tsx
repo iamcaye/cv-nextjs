@@ -33,6 +33,7 @@ export default function SkillsComponent() {
         {
             name: "Python",
             comments: [
+                "FastAPI for backend",
                 "Deep learning & Machine learning",
                 "Web scraping & automation with Selenium",
                 "Scripting"
@@ -44,8 +45,9 @@ export default function SkillsComponent() {
             name: "Typescript",
             comments: [
                 "React with Next",
-                "Angular 14",
-                "Express.ts"
+                "Angular 17",
+                "Express.ts",
+                "NestJS"
             ],
             experience: "4 years",
             icon: "typescript"
@@ -71,13 +73,14 @@ export default function SkillsComponent() {
             icon: "arduino"
         },
         {
-            name: "MySQL",
+            name: "Databases",
             comments: [
-                "Database design",
-                "Query optimization",
+                "MySQL (MariaDB)",
+                "PostgreSQL",
+                "Redis",
             ],
             experience: "4 years",
-            icon: "mysql"
+            icon: "database"
         },
         {
             name: "Docker",
@@ -92,7 +95,8 @@ export default function SkillsComponent() {
             name: "Go",
             comments: [
                 "Beginner level",
-                "Focused on cli tools development",
+                "CLI Tools development",
+                "Echo & Gin for backend"
             ],
             experience: "4 years",
             icon: "golang"
@@ -105,8 +109,8 @@ export default function SkillsComponent() {
                 <h1 className="text-center p-0 mb-5"> Skills </h1>
             </header>
 
-            <div className="md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 hidden">
-                {skills.map((skill: Skill, index:number) => (
+            <div className="md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 hidden">
+                {skills.map((skill: Skill, index: number) => (
                     <SkillCardComponent key={index} skill={skill} />
                 ))}
             </div>
@@ -118,11 +122,11 @@ export default function SkillsComponent() {
                     preventInteractionOnTransition={true}
                     modules={[Navigation, Pagination, Scrollbar, A11y, Thumbs]}
                 >
-                {skills.map((skill:Skill, index:number) => (
+                    {skills.map((skill: Skill, index: number) => (
                         <SwiperSlide key={index} className="my-4">
                             <SkillCardComponent skill={skill} />
                         </SwiperSlide>
-                ))}
+                    ))}
                 </Swiper>
             </div>
         </section>
