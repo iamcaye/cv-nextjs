@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   cv-next-front: 
     container_name: cv-next-front
