@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { Providers } from './providers'
 import NavBar from '@/components/nav-bar'
+import Script from 'next/script'
 
 
 const inter = Inter({ subsets: ['latin'] })
@@ -22,6 +23,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
+      <Script src="https://umami.iamcaye.com/script.js" data-website-id="05fc82e0-3b27-4b80-a434-84abbd183131" />
       <body className={inter.className}>
         <Providers>
           {children}
