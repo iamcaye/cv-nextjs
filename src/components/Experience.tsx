@@ -52,11 +52,13 @@ export default function Experience() {
                 </ul>
 
                 {/* Metrics placeholder — remove when real data available */}
+                {/*
                 <div className="border border-dashed border-[#d4d0c8] dark:border-[#2a2a2a] rounded-md px-4 py-3 mb-5">
                   <p className="text-xs text-[#bbb] dark:text-[#444] italic">
                     Space reserved for metrics (e.g. &ldquo;Reduced report generation time by X%&rdquo;)
                   </p>
                 </div>
+                */}
 
                 <div className="flex flex-wrap gap-1.5 pt-4 border-t border-[#e8e6e0] dark:border-[#1a1a1a]">
                   {entry.tags.map((tag) => (
