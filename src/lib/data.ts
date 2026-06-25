@@ -39,9 +39,7 @@ export const projects: Project[] = [
       'Production deployment and analytics',
     ],
     links: {
-      demo: '#',
-      github: '#',
-      caseStudy: '#',
+      // Fill in real URLs when available
     },
   },
   {
@@ -55,8 +53,7 @@ export const projects: Project[] = [
       'Local persistence',
     ],
     links: {
-      github: '#',
-      caseStudy: '#',
+      // Fill in real URLs when available
     },
   },
 ]

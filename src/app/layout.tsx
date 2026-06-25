@@ -25,12 +25,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <Script
-        src="https://umami.iamcaye.com/script.js"
-        data-website-id="05fc82e0-3b27-4b80-a434-84abbd183131"
-      />
       <body className={inter.className}>
         <Providers>{children}</Providers>
+        <Script
+          src="https://umami.iamcaye.com/script.js"
+          data-website-id="05fc82e0-3b27-4b80-a434-84abbd183131"
+        />
       </body>
     </html>
   )

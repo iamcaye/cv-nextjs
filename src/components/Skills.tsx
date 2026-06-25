@@ -16,14 +16,14 @@ export default function Skills() {
       <MotionSection delay={0.1}>
         <div className="grid grid-cols-1 md:grid-cols-2">
           {skillGroups.map((group, i) => {
-            const isOdd = i % 2 === 0
+            const isLeftColumn = i % 2 === 0
             const isLastRow = i >= skillGroups.length - 2
             return (
               <div
                 key={group.label}
                 className={[
                   'py-7',
-                  isOdd
+                  isLeftColumn
                     ? 'md:pr-10 md:border-r border-[#e8e6e0] dark:border-[#1a1a1a]'
                     : 'md:pl-10',
                   !isLastRow ? 'border-b border-[#e8e6e0] dark:border-[#1a1a1a]' : '',

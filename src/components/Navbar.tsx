@@ -72,6 +72,7 @@ export default function Navbar() {
             className="text-[#737373] dark:text-[#737373] text-lg leading-none"
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="Toggle menu"
+            aria-expanded={menuOpen}
           >
             {menuOpen ? '✕' : '☰'}
           </button>
