@@ -42,7 +42,7 @@ export const projects: Project[] = [
     ],
     links: {
       // Fill in real URLs when available
-      demo: 'https://kreate.es',
+      demo: 'https://kreate.es?utm_source=cv&utm_medium=portfolio&utm_campaign=projects',
     },
   },
   {

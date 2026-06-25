@@ -46,6 +46,8 @@ export default function ProjectCard({ project }: Props) {
           {project.links.demo && (
             <a
               href={project.links.demo}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-xs text-[#f97316] hover:underline"
             >
               Live demo ↗
