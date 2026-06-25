@@ -1,3 +1,6 @@
+'use client'
+
+import { useState } from 'react'
 import MotionSection from './MotionSection'
 
 const contactLinks = [
@@ -22,6 +25,17 @@ const contactLinks = [
 ]
 
 export default function Contact() {
+  const [copied, setCopied] = useState(false)
+
+  function copyEmail(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    navigator.clipboard.writeText('cayetano.biehler@gmail.com').then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
   return (
     <section
       id="contact"
@@ -66,7 +80,7 @@ export default function Contact() {
                 href={link.href}
                 target={link.external ? '_blank' : undefined}
                 rel={link.external ? 'noopener noreferrer' : undefined}
-                className="flex items-center gap-4 px-5 py-4 bg-white dark:bg-[#161616] border border-[#e8e6e0] dark:border-[#222] rounded-lg hover:border-[#f97316] dark:hover:border-[#f97316] transition-colors"
+                className="flex items-center justify-between gap-4 px-5 py-4 bg-white dark:bg-[#161616] border border-[#e8e6e0] dark:border-[#222] rounded-lg hover:border-[#f97316] dark:hover:border-[#f97316] transition-colors"
               >
                 <div>
                   <p className="text-sm font-medium text-[#111] dark:text-[#fafafa]">
@@ -74,6 +88,24 @@ export default function Contact() {
                   </p>
                   <p className="text-xs text-[#999] dark:text-[#555] mt-0.5">{link.display}</p>
                 </div>
+                {link.label === 'Email' && (
+                  <button
+                    onClick={copyEmail}
+                    title={copied ? 'Copied!' : 'Copy email'}
+                    className="flex-shrink-0 p-1.5 rounded text-[#999] hover:text-[#f97316] hover:bg-[#f97316]/10 transition-colors"
+                  >
+                    {copied ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    )}
+                  </button>
+                )}
               </a>
             ))}
           </div>
