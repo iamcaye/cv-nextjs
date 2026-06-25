@@ -1,6 +1,7 @@
 export interface Project {
   name: string
   description: string
+  image?: string
   tags: string[]
   highlights: string[]
   links: {
@@ -31,6 +32,7 @@ export const projects: Project[] = [
     name: 'Kreate',
     description:
       'A platform that helps junior developers gain real-world experience by completing structured software projects.',
+    image: '/kreate.webp',
     tags: ['Next.js', 'TypeScript', 'PostgreSQL', 'Drizzle', 'Clerk'],
     highlights: [
       'Project catalogue and user profiles',
@@ -40,6 +42,7 @@ export const projects: Project[] = [
     ],
     links: {
       // Fill in real URLs when available
+      demo: 'https://kreate.es',
     },
   },
   {

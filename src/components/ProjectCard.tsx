@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { Project } from '@/lib/data'
 
 interface Props {
@@ -7,11 +8,19 @@ interface Props {
 export default function ProjectCard({ project }: Props) {
   return (
     <div className="flex flex-col bg-white dark:bg-[#161616] border border-[#e8e6e0] dark:border-[#222] rounded-lg overflow-hidden hover:border-[#f97316] dark:hover:border-[#f97316] transition-colors h-full">
-      {/* Screenshot placeholder */}
-      <div className="h-48 bg-[#f0efeb] dark:bg-[#1c1c1c] flex items-center justify-center border-b border-[#e8e6e0] dark:border-[#222] shrink-0">
-        <span className="font-mono text-[10px] text-[#ccc] dark:text-[#2a2a2a] tracking-widest uppercase">
-          screenshot
-        </span>
+      <div className="relative h-48 bg-[#f0efeb] dark:bg-[#1c1c1c] border-b border-[#e8e6e0] dark:border-[#222] shrink-0 overflow-hidden">
+        {project.image ? (
+          <Image
+            src={project.image}
+            alt={`${project.name} screenshot`}
+            fill
+            className="object-cover object-top"
+          />
+        ) : (
+          <span className="absolute inset-0 flex items-center justify-center font-mono text-[10px] text-[#ccc] dark:text-[#2a2a2a] tracking-widest uppercase">
+            screenshot
+          </span>
+        )}
       </div>
 
       <div className="p-6 flex flex-col flex-1">
