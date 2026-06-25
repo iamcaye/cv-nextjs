@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTheme } from 'next-themes'
 
 const navLinks = [
@@ -16,8 +16,20 @@ export default function Navbar() {
   const { resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [expanded, setExpanded] = useState(true)
+  const expandTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const triggerExpand = () => {
+    setExpanded(true)
+    if (expandTimer.current) clearTimeout(expandTimer.current)
+    expandTimer.current = setTimeout(() => setExpanded(false), 2000)
+  }
 
   useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    triggerExpand()
+    return () => { if (expandTimer.current) clearTimeout(expandTimer.current) }
+  }, [])
 
   return (
     <nav className="sticky top-0 z-50 bg-[#fafaf8]/80 dark:bg-[#111111]/80 backdrop-blur-md border-b border-[#e8e6e0] dark:border-[#222]">
@@ -42,11 +54,21 @@ export default function Navbar() {
           ))}
           {mounted && (
             <button
-              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-              className="text-[#737373] hover:text-[#111] dark:hover:text-[#fafafa] transition-colors text-base leading-none"
+              onClick={() => { setTheme(resolvedTheme === 'dark' ? 'light' : 'dark'); triggerExpand() }}
+              className={`flex items-center gap-1 leading-none transition-all duration-300 rounded-full text-[#737373] hover:text-[#111] dark:hover:text-[#fafafa] ${
+                expanded
+                  ? 'border border-[#d0cec8] dark:border-[#333] px-2.5 py-1 text-sm'
+                  : 'text-base'
+              }`}
               aria-label="Toggle theme"
             >
               {resolvedTheme === 'dark' ? '○' : '●'}
+              <span
+                className="overflow-hidden whitespace-nowrap text-xs transition-all duration-300"
+                style={{ maxWidth: expanded ? '3rem' : '0', opacity: expanded ? 1 : 0 }}
+              >
+                {resolvedTheme}
+              </span>
             </button>
           )}
           <a
@@ -61,11 +83,21 @@ export default function Navbar() {
         <div className="flex md:hidden items-center gap-3">
           {mounted && (
             <button
-              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-              className="text-[#737373] text-base"
+              onClick={() => { setTheme(resolvedTheme === 'dark' ? 'light' : 'dark'); triggerExpand() }}
+              className={`flex items-center gap-1 leading-none transition-all duration-300 rounded-full text-[#737373] ${
+                expanded
+                  ? 'border border-[#d0cec8] dark:border-[#333] px-2.5 py-1 text-sm'
+                  : 'text-base'
+              }`}
               aria-label="Toggle theme"
             >
               {resolvedTheme === 'dark' ? '○' : '●'}
+              <span
+                className="overflow-hidden whitespace-nowrap text-xs transition-all duration-300"
+                style={{ maxWidth: expanded ? '3rem' : '0', opacity: expanded ? 1 : 0 }}
+              >
+                {resolvedTheme}
+              </span>
             </button>
           )}
           <button
