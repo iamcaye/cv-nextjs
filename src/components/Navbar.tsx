@@ -112,26 +112,40 @@ export default function Navbar() {
       </div>
 
       {/* Mobile menu */}
-      {menuOpen && (
-        <div className="md:hidden border-t border-[#e8e6e0] dark:border-[#222] bg-[#fafaf8] dark:bg-[#111111] px-6 py-5 flex flex-col gap-4">
-          {navLinks.map(({ label, href }) => (
+      <div
+        className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${
+          menuOpen ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
+        }`}
+      >
+        <div className="border-t border-[#e8e6e0] dark:border-[#222] bg-[#fafaf8] dark:bg-[#111111] px-6 py-5 flex flex-col gap-4">
+          {navLinks.map(({ label, href }, i) => (
             <a
               key={href}
               href={href}
               onClick={() => setMenuOpen(false)}
-              className="text-sm text-[#737373] hover:text-[#111] dark:hover:text-[#fafafa] transition-colors"
+              className="text-sm text-[#737373] hover:text-[#111] dark:hover:text-[#fafafa] transition-all duration-200"
+              style={{
+                transitionDelay: menuOpen ? `${i * 40}ms` : '0ms',
+                transform: menuOpen ? 'translateY(0)' : 'translateY(-6px)',
+                opacity: menuOpen ? 1 : 0,
+              }}
             >
               {label}
             </a>
           ))}
           <a
             href="/cv.pdf"
-            className="bg-[#f97316] text-[#111] font-semibold text-sm px-4 py-2.5 rounded text-center mt-1"
+            className="bg-[#f97316] text-[#111] font-semibold text-sm px-4 py-2.5 rounded text-center mt-1 transition-all duration-200"
+            style={{
+              transitionDelay: menuOpen ? `${navLinks.length * 40}ms` : '0ms',
+              transform: menuOpen ? 'translateY(0)' : 'translateY(-6px)',
+              opacity: menuOpen ? 1 : 0,
+            }}
           >
             Download CV ↓
           </a>
         </div>
-      )}
+      </div>
     </nav>
   )
 }
