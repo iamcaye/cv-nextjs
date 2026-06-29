@@ -68,6 +68,8 @@ export default function Hero() {
         </a>
         <a
           href="/cv.pdf"
+          target="_blank"
+          rel="noopener noreferrer"
           className="border border-[#d4d0c8] dark:border-[#2a2a2a] text-[#111] dark:text-[#fafafa] font-medium text-sm px-6 py-3 rounded hover:border-[#999] dark:hover:border-[#555] transition-colors"
         >
           Download CV ↓
