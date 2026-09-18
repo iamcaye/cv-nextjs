@@ -28,7 +28,7 @@ export default function Hero() {
         {...fadeUp(0.1)}
         className="text-5xl md:text-[68px] font-extrabold tracking-[-1.5px] text-[#111] dark:text-[#fafafa] leading-[1.05] mb-5"
       >
-        Hi, I&apos;m<br />Cayetano.
+        Hi, I&apos;m<br />Cayetano Biehler.
       </motion.h1>
 
       <motion.p
