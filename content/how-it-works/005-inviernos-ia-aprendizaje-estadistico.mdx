@@ -1,0 +1,252 @@
+---
+title: "Cuando Las Redes Dejaron De Ser Protagonistas"
+slug: "inviernos-ia-aprendizaje-estadistico"
+chapter: 5
+description: "Los inviernos de la inteligencia artificial, el auge de los sistemas expertos y las ideas del aprendizaje estadístico que siguen siendo útiles."
+publishedAt: "2026-10-14"
+category: "Artificial Intelligence"
+tags:
+  - AI History
+  - Machine Learning
+  - Expert Systems
+  - SVM
+status: "published"
+nextChapterSuggestion: "Máquinas con memoria: RNN, LSTM y el problema de las secuencias"
+---
+
+La historia de la inteligencia artificial suele resumirse como una carrera de relevos: primero llegaron las reglas, después las redes neuronales y finalmente el aprendizaje profundo. Es una narración cómoda, pero engañosa. Las distintas escuelas convivieron, compitieron y se influyeron mutuamente. Algunas técnicas desaparecieron de los titulares sin dejar de utilizarse; otras regresaron cuando cambiaron los datos, el hardware o las necesidades de la industria.
+
+Entre los primeros experimentos con perceptrones y el éxito de AlexNet transcurrieron más de cincuenta años. Durante buena parte de ese tiempo, las redes neuronales no fueron el centro de la IA. Para entender por qué, tenemos que estudiar tanto sus limitaciones técnicas como las expectativas que se construyeron a su alrededor.
+
+También debemos conocer a quienes ocuparon ese espacio: los sistemas expertos, los árboles de decisión, los modelos probabilísticos y las máquinas de vectores de soporte. Muchas ideas que hoy parecen propias de la IA moderna —entrenar con ejemplos, separar aprendizaje y evaluación, controlar el sobreajuste o cuantificar la incertidumbre— se consolidaron durante aquellos años.
+
+## No hubo un solo invierno
+
+La expresión *invierno de la IA* describe periodos en los que disminuyeron la financiación, la inversión comercial y el entusiasmo público. Sin embargo, no identifica una crisis mundial que comenzara un día concreto. Hubo contracciones diferentes en Estados Unidos, Reino Unido, Europa y Japón, provocadas por programas de investigación y mercados distintos.
+
+La primera ola de optimismo había producido afirmaciones muy ambiciosas. Se esperaba que las máquinas tradujeran idiomas, resolvieran problemas generales y mantuvieran conversaciones razonables en pocos años. Los programas funcionaban bien en demostraciones cuidadosamente delimitadas, pero sufrían cuando se ampliaba el vocabulario o aparecían situaciones no previstas.
+
+Un punto de inflexión fue el informe del comité ALPAC, publicado en Estados Unidos en 1966. Evaluó el progreso de la traducción automática y concluyó que los sistemas existentes no ofrecían una vía inmediata hacia una traducción general, económica y de alta calidad. El informe no declaró imposible la traducción automática, pero recomendó priorizar investigación lingüística y herramientas de asistencia frente a la promesa de una sustitución completa del traductor humano. Sus consecuencias afectaron especialmente a la financiación estadounidense de ese campo. [ALPAC, 1966](https://www.nationalacademies.org/publications/20813).
+
+En el Reino Unido, James Lighthill entregó en 1973 una revisión muy crítica de la investigación en inteligencia artificial. Una de sus objeciones era la explosión combinatoria: técnicas que parecían convincentes con diez objetos o movimientos se volvían impracticables con miles de posibilidades. El informe influyó en la reducción del apoyo británico a buena parte de la investigación académica en IA. [Informe y debate de Lighthill](https://www.aiai.ed.ac.uk/events/lighthill1973/).
+
+Estos episodios no demuestran que “la IA fracasara”. La traducción automática, la visión y la planificación continuaron investigándose. Lo que fracasó fue una determinada relación entre promesas, recursos y resultados.
+
+## El enemigo invisible: la escala
+
+Imaginemos un programa que debe elegir una jugada de ajedrez. Si dispone de 30 movimientos posibles y analiza otros 30 en respuesta, dos turnos requieren explorar unas 900 combinaciones. Después de seis turnos, el número teórico ya ronda:
+
+$$
+30^6 = 729\,000\,000
+$$
+
+Podemos podar ramas, usar heurísticas y evitar posiciones repetidas, pero el ejemplo revela el problema. Añadir unos pocos pasos puede multiplicar enormemente el trabajo.
+
+Algo similar ocurría con las primeras redes neuronales. El perceptrón podía aprender una frontera lineal, pero no construir por sí solo representaciones jerárquicas. Las redes multicapa eran más expresivas, aunque entrenarlas resultaba caro e inestable. Faltaban grandes conjuntos de datos etiquetados, procesadores rápidos, buenas técnicas de inicialización y décadas de experiencia práctica.
+
+Además, la crítica a los perceptrones y sus limitaciones —como el problema XOR— afectó a la reputación de las redes. Sería exagerado afirmar que un único libro o resultado matemático detuvo toda la investigación: el interés también dependía de la financiación, el hardware y el éxito de métodos alternativos.
+
+Las redes tampoco desaparecieron. Backpropagation ganó visibilidad en la década de 1980, LeNet demostró aplicaciones reales y diversos grupos mantuvieron viva la investigación conexionista. Simplemente, durante muchos años no ofrecía la mejor combinación disponible de precisión, coste y facilidad de despliegue.
+
+## La época de los sistemas expertos
+
+Mientras las redes trataban de aprender a partir de ejemplos, otra escuela propuso introducir directamente el conocimiento humano en el programa.
+
+Un sistema experto suele contener dos piezas:
+
+- Una **base de conocimiento**, formada por hechos y reglas.
+- Un **motor de inferencia**, encargado de decidir qué reglas aplicar.
+
+Una regla médica simplificada podría ser:
+
+```text
+SI
+    el cultivo contiene un organismo grampositivo
+    Y su forma es coco
+    Y crece formando cadenas
+ENTONCES
+    existe evidencia de que el organismo es un estreptococo
+```
+
+El motor puede razonar hacia delante, partiendo de los datos disponibles, o hacia atrás, comenzando por una hipótesis y buscando qué evidencias permitirían confirmarla.
+
+MYCIN, desarrollado en Stanford durante los años setenta, es uno de los ejemplos más conocidos. Su objetivo era ayudar a identificar infecciones bacterianas y recomendar tratamientos antimicrobianos. Incorporaba reglas, preguntas al usuario y una forma de combinar grados de confianza. El proyecto fue también un laboratorio para estudiar cómo adquirir, representar y explicar conocimiento experto. [Buchanan y Shortliffe, 1984](https://people.dbmi.columbia.edu/~ehs7001/Buchanan-Shortliffe-1984/MYCIN%20Book.htm).
+
+Los sistemas expertos parecían atractivos porque podían justificar sus conclusiones: era posible mostrar qué reglas se habían activado. Además, no necesitaban millones de ejemplos. En un dominio estrecho y relativamente estable, unas reglas cuidadosamente diseñadas podían aportar mucho valor.
+
+Pero trasladar el conocimiento de una persona a una base de reglas resultó difícil. Los expertos no siempre saben verbalizar cómo toman una decisión. Con frecuencia reconocen configuraciones aprendidas tras años de experiencia, pero no pueden convertirlas en una lista completa de condiciones.
+
+Apareció así el **cuello de botella de la adquisición del conocimiento**. Cada nueva excepción exigía entrevistar a especialistas, modificar reglas y comprobar que el cambio no rompía decisiones anteriores.
+
+El mantenimiento también podía volverse combinatorio:
+
+```text
+Regla general
+ ├─ excepción A
+ │   ├─ excepción de A
+ │   └─ caso fronterizo
+ ├─ excepción B
+ └─ conflicto con otra regla
+```
+
+Cuando cambiaba el dominio —nuevos productos, enfermedades, leyes o procesos—, la base de conocimiento podía quedar obsoleta. Muchos sistemas funcionaban como prototipos impresionantes, pero convertirlos en productos fiables, integrarlos con organizaciones reales y mantenerlos durante años era mucho más complicado.
+
+La industria de los sistemas expertos creció durante la década de 1980 y posteriormente se contrajo. A esto se sumaron la caída del mercado de máquinas Lisp y la decepción con otros programas empresariales y gubernamentales. Este conjunto de acontecimientos suele denominarse segundo invierno de la IA, aunque tampoco fue una crisis uniforme.
+
+## De programar conocimiento a estimarlo
+
+Mientras las reglas sufrían problemas de mantenimiento, fue ganando terreno una pregunta diferente:
+
+> En lugar de pedir a una persona que describa todas las reglas, ¿podemos estimar una función a partir de datos observados?
+
+Aquí se consolida el aprendizaje estadístico. El programador ya no escribe directamente la solución para cada caso. Elige una familia de modelos, una función objetivo y un procedimiento de entrenamiento.
+
+El flujo general es:
+
+$$
+\text{datos} \rightarrow \text{modelo} \rightarrow \text{predicción} \rightarrow \text{error}
+$$
+
+El error permite ajustar el modelo. Pero también aparece una preocupación fundamental: un sistema puede memorizar los ejemplos de entrenamiento sin funcionar bien con casos nuevos. Esta diferencia entre entrenamiento y generalización se convirtió en el centro del aprendizaje automático.
+
+### Árboles de decisión: aprender preguntas
+
+Un árbol de decisión divide los datos mediante una secuencia de preguntas:
+
+```text
+¿El importe supera 500 €?
+    sí  → ¿La cuenta tiene menos de 30 días?
+              sí  → posible fraude
+              no  → operación normal
+    no  → operación normal
+```
+
+El algoritmo busca una pregunta que produzca grupos más “puros”. Si usamos entropía para medir la mezcla de clases:
+
+$$
+H(S)=-\sum_k p_k\log_2 p_k
+$$
+
+donde $p_k$ es la proporción de ejemplos de la clase $k$. Un conjunto formado por mitades iguales de dos clases tiene entropía alta; uno que contiene una sola clase tiene entropía cero.
+
+ID3, descrito por Ross Quinlan en 1986, seleccionaba atributos usando ganancia de información y construía el árbol de forma recursiva. [Quinlan, 1986](https://doi.org/10.1007/BF00116251).
+
+Los árboles eran fáciles de inspeccionar y funcionaban con datos tabulares. Sin embargo, el procedimiento era voraz: tomaba en cada nodo una decisión local sin garantizar el mejor árbol global. Pequeños cambios en los datos podían producir estructuras diferentes. Con el tiempo, métodos de conjunto como *random forests* y *gradient boosting* reducirían parte de esa inestabilidad.
+
+### Modelos probabilísticos: razonar con incertidumbre
+
+En muchos problemas no basta con elegir una clase. Necesitamos expresar incertidumbre:
+
+$$
+P(\text{spam}\mid \text{mensaje})=0{,}93
+$$
+
+Los modelos probabilísticos permiten combinar observaciones incompletas y supuestos sobre cómo se generan los datos.
+
+Los modelos ocultos de Markov, por ejemplo, fueron decisivos en reconocimiento del habla. Suponen que existe una secuencia de estados ocultos $z_t$ —como los sonidos que se intentan pronunciar— que produce observaciones $x_t$, como fragmentos de audio:
+
+$$
+P(z_t\mid z_{t-1}), \qquad P(x_t\mid z_t)
+$$
+
+La hipótesis de Markov simplifica el problema: el estado actual depende directamente del anterior, no de toda la historia. No es una descripción perfecta del lenguaje o del habla, sino una aproximación que permite calcular eficientemente probabilidades mediante programación dinámica.
+
+Esta distinción es importante: un modelo no tiene que reproducir literalmente el mecanismo del mundo. Puede ser útil si sus supuestos producen predicciones fiables dentro de un ámbito determinado.
+
+### Máquinas de vectores de soporte: buscar el margen
+
+Una máquina de vectores de soporte, o SVM, vuelve a la idea de separar clases con una frontera:
+
+$$
+f(x)=w^\top x+b
+$$
+
+Pero no busca cualquier frontera correcta. Busca la que deja el mayor margen posible entre ambas clases. Para datos perfectamente separables, el problema puede escribirse como:
+
+$$
+\min_{w,b}\frac{1}{2}\lVert w\rVert^2
+$$
+
+sujeto a:
+
+$$
+y_i(w^\top x_i+b)\geq 1
+$$
+
+Minimizar $\lVert w\rVert$ equivale a ampliar el margen. Solo los ejemplos próximos a la frontera —los **vectores de soporte**— determinan directamente la solución.
+
+Como los datos reales contienen ruido, se introducen variables de holgura $\xi_i$:
+
+$$
+\min_{w,b,\xi}\frac{1}{2}\lVert w\rVert^2+C\sum_i \xi_i
+$$
+
+El parámetro $C$ controla el compromiso entre un margen amplio y penalizar los errores de entrenamiento.
+
+Mediante una función *kernel*, la SVM puede construir fronteras no lineales sin calcular explícitamente todas las nuevas características:
+
+$$
+K(x_i,x_j)=\phi(x_i)^\top\phi(x_j)
+$$
+
+Cortes y Vapnik presentaron en 1995 la formulación de las redes de vectores de soporte y la evaluaron, entre otros escenarios, en reconocimiento de caracteres. [Cortes y Vapnik, 1995](https://link.springer.com/article/10.1007/BF00994018).
+
+## Una nueva cultura experimental
+
+El cambio más duradero no fue un algoritmo particular, sino una manera de trabajar.
+
+| Enfoque | Fuente principal del comportamiento | Problema típico |
+|---|---|---|
+| Sistema experto | Reglas escritas por especialistas | Mantener excepciones y cambios |
+| Árbol de decisión | Divisiones aprendidas de los datos | Inestabilidad y sobreajuste |
+| Modelo probabilístico | Distribución y dependencias supuestas | Supuestos demasiado restrictivos |
+| SVM | Frontera de máximo margen | Escalado y elección del *kernel* |
+| Red neuronal | Representaciones y pesos aprendidos | Datos, cálculo y optimización |
+
+La disciplina comenzó a apoyarse más en conjuntos separados de entrenamiento y prueba, validación cruzada, métricas comparables y competiciones sobre datos comunes. Esto ayudó a distinguir una demostración atractiva de una mejora reproducible.
+
+También cambió la pregunta. En vez de preguntar únicamente “¿se comporta inteligentemente?”, se podía preguntar:
+
+- ¿Qué error comete sobre datos no vistos?
+- ¿Cómo cambia al aumentar el número de ejemplos?
+- ¿Qué variables explican sus decisiones?
+- ¿Cuánto cuesta entrenarlo y ejecutarlo?
+- ¿Qué ocurre cuando cambia la distribución de los datos?
+
+Estas preguntas siguen siendo centrales en los LLM actuales.
+
+## Por qué regresaron las redes
+
+El aprendizaje profundo no venció porque las reglas y la estadística fueran callejones sin salida. Regresó con fuerza porque coincidieron varias condiciones: grandes volúmenes de datos digitalizados, GPU capaces de realizar muchas operaciones matriciales en paralelo, mejores prácticas de entrenamiento y tareas donde aprender representaciones era especialmente valioso.
+
+En una imagen, diseñar manualmente todas las características que distinguen un gato de un perro es difícil. Una red profunda puede aprender sucesivamente bordes, texturas y configuraciones. En cambio, para predecir impagos con una tabla pequeña y bien estructurada, un modelo lineal o un conjunto de árboles puede seguir siendo más barato, interpretable y competitivo.
+
+La lección de los inviernos no es que una técnica antigua deba ser reemplazada por una nueva. Es que una tecnología existe dentro de un sistema: necesita datos, hardware, métricas, financiación, mantenimiento y expectativas razonables.
+
+La IA avanza tanto por nuevas ideas como por aprender dónde fallan las anteriores.
+
+### Referencias
+
+- Comité ALPAC, [*Language and Machines: Computers in Translation and Linguistics*](https://www.nationalacademies.org/publications/20813) (1966).
+- James Lighthill, [*Artificial Intelligence: A General Survey*](https://www.aiai.ed.ac.uk/events/lighthill1973/) (1973).
+- Bruce G. Buchanan y Edward H. Shortliffe, [*Rule-Based Expert Systems: The MYCIN Experiments*](https://people.dbmi.columbia.edu/~ehs7001/Buchanan-Shortliffe-1984/MYCIN%20Book.htm) (1984).
+- J. R. Quinlan, [*Induction of Decision Trees*](https://doi.org/10.1007/BF00116251) (1986).
+- Corinna Cortes y Vladimir Vapnik, [*Support-Vector Networks*](https://link.springer.com/article/10.1007/BF00994018) (1995).
+
+## Next chapter
+
+### Propuesta para el siguiente capítulo
+
+**Capítulo 6 · Máquinas con memoria: RNN, LSTM y el problema de las secuencias**
+
+Una imagen puede analizarse como una estructura espacial, pero una frase, una melodía o una serie temporal dependen del orden. El próximo capítulo estudiará cómo las redes recurrentes intentaron incorporar memoria reutilizando un estado oculto a lo largo del tiempo. Veremos cómo se despliega una RNN durante el entrenamiento, cómo backpropagation atraviesa la secuencia y por qué los gradientes pueden desvanecerse o explotar. Después abriremos las compuertas de una LSTM para entender, ecuación por ecuación, cómo decide qué recordar, qué olvidar y qué mostrar. Finalmente analizaremos por qué estas arquitecturas dominaron durante años el tratamiento de secuencias, cuáles son sus limitaciones de paralelización y cómo esas dificultades prepararon el terreno para la atención, sin convertir a los transformers en sus sustitutos universales.
+
+Preguntas que resolverá:
+
+1. ¿Cómo representa una RNN todo lo ocurrido anteriormente usando un vector de estado?
+2. ¿Por qué resulta tan difícil aprender dependencias largas mediante backpropagation?
+3. ¿Qué hacen exactamente las compuertas de una LSTM y qué problemas no resuelven?
+
+La conexión con este capítulo es directa: pasaremos de los modelos estadísticos de secuencias, que imponían dependencias cuidadosamente diseñadas, a redes capaces de aprender parte de esas representaciones a partir de los datos.
+
+¿Te interesa este tema para la próxima entrega o prefieres que cambiemos el rumbo? Si no indicas otro, continuaremos con RNN y LSTM.
