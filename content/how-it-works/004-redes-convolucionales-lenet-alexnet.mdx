@@ -1,0 +1,357 @@
+---
+title: "Cómo Una Máquina Aprende A Ver: De Neocognitron Y LeNet A AlexNet"
+slug: "redes-convolucionales-lenet-alexnet"
+chapter: 4
+description: "Cómo las redes convolucionales aprovechan la estructura de las imágenes y cómo arquitectura, datos y GPU hicieron posible AlexNet."
+publishedAt: "2026-10-14"
+category: "Artificial Intelligence"
+tags:
+  - CNN
+  - Computer Vision
+  - Deep Learning
+  - GPU
+status: "published"
+nextChapterSuggestion: "Cuando las redes dejaron de ser protagonistas: inviernos de la IA y aprendizaje estadístico"
+---
+
+Una fotografía es, para el ordenador, una matriz de números. En una imagen RGB, cada posición contiene normalmente tres valores que representan las intensidades de rojo, verde y azul.
+
+Podríamos aplanar todos esos números y conectarlos a una red como la del capítulo anterior. Pero perderíamos una propiedad fundamental: en una imagen, **la posición y la proximidad importan**.
+
+Un píxel oscuro aislado dice poco. Varios píxeles oscuros contiguos pueden formar un borde. Varios bordes pueden formar una esquina. Las esquinas y texturas pueden combinarse en partes de objetos y, finalmente, en objetos completos.
+
+Las redes convolucionales, o CNN, incorporan esa estructura espacial directamente en su arquitectura.
+
+## El problema de conectar cada píxel con todo
+
+Imaginemos una imagen pequeña de $32\times32$ píxeles en escala de grises. Contiene:
+
+$$
+32\cdot32=1024
+$$
+
+valores.
+
+Si conectamos la imagen con una capa de 1.000 unidades, necesitamos:
+
+$$
+1024\cdot1000+1000=1.025.000
+$$
+
+parámetros, incluyendo los sesgos.
+
+Para imágenes RGB de mayor resolución, la cantidad crece rápidamente. Una imagen de $224\times224$ con tres canales contiene:
+
+$$
+224\cdot224\cdot3=150.528
+$$
+
+valores. Conectarla directamente con una capa de 4.096 unidades requeriría más de 616 millones de pesos.
+
+Además del coste, aparece un problema conceptual. Una unidad conectada a todos los píxeles debe aprender por separado que un borde vertical situado a la izquierda y el mismo borde desplazado a la derecha son manifestaciones del mismo patrón.
+
+Una red convolucional introduce dos supuestos:
+
+1. Los patrones visuales suelen ser locales.
+2. Un patrón puede resultar útil en distintas posiciones de la imagen.
+
+Estos supuestos no son verdades universales, pero encajan razonablemente bien con muchas imágenes naturales.
+
+## Un filtro que recorre la imagen
+
+Una convolución utiliza una matriz pequeña llamada **kernel** o filtro. Consideremos este filtro de $3\times3$:
+
+$$
+K=
+\begin{bmatrix}
+-1&0&1\\
+-1&0&1\\
+-1&0&1
+\end{bmatrix}
+$$
+
+Y una región de una imagen:
+
+$$
+X=
+\begin{bmatrix}
+0&0&1\\
+0&0&1\\
+0&0&1
+\end{bmatrix}
+$$
+
+Multiplicamos cada posición por la correspondiente del filtro y sumamos:
+
+$$
+(-1\cdot0)+(0\cdot0)+(1\cdot1)
+$$
+
+$$
++(-1\cdot0)+(0\cdot0)+(1\cdot1)
+$$
+
+$$
++(-1\cdot0)+(0\cdot0)+(1\cdot1)=3
+$$
+
+El resultado positivo indica que la región encaja con el patrón buscado: una transición vertical desde valores bajos hacia valores altos.
+
+Después desplazamos el filtro a la siguiente región y repetimos el cálculo. Los resultados forman una nueva matriz llamada **mapa de características**.
+
+Técnicamente, muchas bibliotecas de deep learning realizan una correlación cruzada, porque no invierten el kernel antes de aplicarlo. Aun así, por convención se habla de convolución. Como los valores del filtro se aprenden, esa diferencia normalmente no altera el papel que cumple la operación.
+
+Para una entrada bidimensional $X$ y un kernel $K$, podemos escribir:
+
+$$
+Y_{i,j}
+=
+\sum_m\sum_n X_{i+m,j+n}K_{m,n}+b
+$$
+
+Cada posición de salida depende únicamente de una pequeña región de la entrada. Esa región es su **campo receptivo**.
+
+## El filtro no se diseña a mano
+
+El kernel anterior se parece a un detector de bordes diseñado manualmente. En una CNN, normalmente empezamos con valores pequeños o aleatorios.
+
+Durante el forward pass, los filtros producen mapas de características. La red utiliza esos mapas para calcular su predicción y su pérdida. Después, backpropagation obtiene:
+
+$$
+\frac{\partial L}{\partial K_{m,n}}
+$$
+
+para cada valor del filtro. El optimizador los modifica igual que modificaba los pesos de la red del capítulo anterior.
+
+La red aprende qué patrones locales ayudan a reducir su error. Algunos filtros de las primeras capas pueden terminar respondiendo a bordes, colores o texturas, aunque no debemos asumir que cada filtro corresponde siempre a un concepto fácilmente nombrable.
+
+## Compartir pesos cambia la escala del problema
+
+La idea decisiva es que utilizamos **el mismo filtro en todas las posiciones**.
+
+Si un kernel de $5\times5$ procesa una imagen en escala de grises, necesita solo 25 pesos y un sesgo. Si queremos seis filtros:
+
+$$
+6(5\cdot5+1)=156
+$$
+
+parámetros.
+
+Comparemos eso con producir seis mapas de $28\times28$ mediante conexiones independientes desde una entrada de $32\times32$:
+
+$$
+1024\cdot(28\cdot28\cdot6)
+=4.816.896
+$$
+
+pesos.
+
+No es una comparación entre dos arquitecturas idénticas, pero muestra el efecto de imponer localidad y compartir parámetros: pasamos de millones de conexiones independientes a un pequeño conjunto de filtros reutilizados.
+
+La reducción no es gratuita. Estamos obligando a la red a tratar un patrón de forma parecida en distintas posiciones. Si la posición absoluta fuera esencial para la tarea, este supuesto podría resultar inadecuado.
+
+## Canales y múltiples mapas de características
+
+Una imagen RGB tiene tres canales. Por tanto, un filtro de $3\times3$ que procese la imagen completa no contiene nueve valores, sino:
+
+$$
+3\cdot3\cdot3=27
+$$
+
+Uno por cada posición espacial y canal de entrada.
+
+El filtro combina los tres canales y produce un mapa de características. Si la capa tiene 64 filtros, obtendremos 64 mapas diferentes.
+
+En general, una capa con:
+
+- kernels de tamaño $K\times K$,
+- $C_{\text{in}}$ canales de entrada,
+- $C_{\text{out}}$ filtros,
+
+tiene:
+
+$$
+C_{\text{out}}
+\left(K^2C_{\text{in}}+1\right)
+$$
+
+parámetros, incluyendo un sesgo por filtro.
+
+La profundidad de la representación aumenta aunque las dimensiones espaciales puedan reducirse.
+
+## Stride, padding y tamaño de salida
+
+El **stride** indica cuántas posiciones avanza el filtro en cada movimiento. Con stride 1, se desplaza una posición. Con stride 2, salta de dos en dos y produce una salida más pequeña.
+
+El **padding** añade valores alrededor de la entrada, normalmente ceros. Esto permite procesar mejor los bordes y controlar el tamaño de la salida.
+
+Para una dimensión de entrada $N$, kernel $K$, padding $P$ y stride $S$, el tamaño de salida es:
+
+$$
+\left\lfloor
+\frac{N+2P-K}{S}
+\right\rfloor+1
+$$
+
+Si tenemos una entrada de 32, un kernel de 5, sin padding y stride 1:
+
+$$
+\frac{32-5}{1}+1=28
+$$
+
+El resultado tendrá $28\times28$ posiciones.
+
+Con un kernel de 3, padding 1 y stride 1:
+
+$$
+\frac{32+2-3}{1}+1=32
+$$
+
+Conservamos las dimensiones espaciales.
+
+## Pooling: resumir pequeñas regiones
+
+Las primeras CNN alternaban habitualmente convoluciones con operaciones de **pooling**. El *max pooling* toma, por ejemplo, una región de $2\times2$ y conserva su valor máximo:
+
+$$
+\begin{bmatrix}
+1&5\\
+3&2
+\end{bmatrix}
+\rightarrow5
+$$
+
+Esto reduce la resolución y conserva la presencia de una activación fuerte aunque su posición cambie ligeramente.
+
+Conviene no describirlo como una invariancia perfecta. Una pequeña traslación aún puede cambiar considerablemente el resultado de la red. El pooling aporta cierta tolerancia local y reduce el volumen de datos, pero también elimina información precisa sobre la posición.
+
+Las arquitecturas posteriores no siempre utilizan max pooling. Pueden reducir resolución mediante convoluciones con stride o utilizar otras formas de agregación. La idea general es decidir qué información espacial conservar y cuál resumir.
+
+## El campo receptivo crece con la profundidad
+
+Una unidad de la primera capa observa una región pequeña de la imagen. Una unidad posterior observa varias unidades anteriores y, de forma indirecta, una región mayor de la entrada.
+
+Supongamos dos convoluciones consecutivas de $3\times3$, con stride 1. Una unidad de la segunda capa no ve únicamente tres píxeles de ancho: cada una de sus tres entradas ya dependía de tres posiciones de la imagen. Su campo receptivo efectivo es de $5\times5$.
+
+Al acumular capas, la red construye una jerarquía:
+
+$$
+\text{píxeles}
+\rightarrow
+\text{patrones locales}
+\rightarrow
+\text{combinaciones}
+\rightarrow
+\text{representaciones más amplias}
+$$
+
+Es una descripción funcional, no una garantía de que la red reconstruya exactamente la jerarquía conceptual que utilizaría una persona.
+
+## De la visión biológica al Neocognitron
+
+En 1962, David Hubel y Torsten Wiesel publicaron sus estudios sobre campos receptivos y organización funcional de la corteza visual de gatos. Observaron, entre otras cosas, células que respondían selectivamente a orientaciones y disposiciones concretas dentro de regiones limitadas del campo visual. [Hubel y Wiesel, 1962](https://pmc.ncbi.nlm.nih.gov/articles/PMC1359523/).
+
+Estos descubrimientos proporcionaron inspiración para modelos jerárquicos de visión, aunque una CNN no debe considerarse una reproducción fiel del sistema visual biológico.
+
+En 1980, Kunihiko Fukushima presentó el **Neocognitron**, una red multicapa autoorganizada diseñada para reconocer patrones aunque cambiaran de posición. Alternaba tipos de unidades que extraían características y ofrecían tolerancia frente a desplazamientos. Su arquitectura estaba inspirada en el modelo jerárquico de Hubel y Wiesel. [Fukushima, 1980](https://pubmed.ncbi.nlm.nih.gov/7370364/).
+
+El Neocognitron anticipaba ideas importantes de las CNN, pero no era simplemente una CNN moderna entrenada con backpropagation. Su procedimiento de aprendizaje era diferente y parcialmente no supervisado.
+
+La historia no es una única línea en la que cada arquitectura reemplaza limpiamente a la anterior. Ideas como campos receptivos locales, jerarquías y tolerancia a desplazamientos aparecieron en formas diferentes antes de integrarse en los sistemas actuales.
+
+## LeNet: aprender directamente de los píxeles
+
+A finales de los años ochenta y durante los noventa, Yann LeCun y sus colaboradores desarrollaron redes convolucionales entrenadas mediante backpropagation para reconocer dígitos escritos a mano.
+
+La arquitectura más conocida de esta etapa es **LeNet-5**, presentada en detalle en el trabajo de 1998 de LeCun, Léon Bottou, Yoshua Bengio y Patrick Haffner.
+
+LeNet-5 procesaba imágenes de $32\times32$ y alternaba convoluciones con reducción espacial antes de llegar a capas que realizaban la clasificación. Su objetivo no era reconocer miles de objetos naturales, sino caracteres relativamente pequeños y estructurados.
+
+Lo importante era el cambio de enfoque: en vez de diseñar manualmente todo el extractor de características y entrenar solo el clasificador final, la red podía aprender el proceso completo desde los píxeles.
+
+El artículo de 1998 describe sistemas de reconocimiento documental que combinaban redes convolucionales con otros componentes y que llegaron a utilizarse comercialmente para leer millones de cheques al día. [LeCun y colaboradores, 1998](https://proceedingsoftheieee.ieee.org/gradient-based-learning-applied-to-document-recognition/).
+
+Así que las CNN no permanecieron completamente inactivas hasta 2012. Funcionaban bien en ámbitos concretos. Lo que todavía no existía era la combinación necesaria para aplicarlas con éxito a una colección masiva y diversa de fotografías.
+
+## La pieza de los datos: ImageNet
+
+En 2009, Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li y Fei-Fei Li presentaron ImageNet.
+
+La propuesta consistía en organizar imágenes según la jerarquía conceptual de WordNet. En el estado descrito en el trabajo inicial, el conjunto contenía 3,2 millones de imágenes repartidas entre 5.247 categorías o *synsets*, verificadas mediante trabajo humano distribuido. [Deng y colaboradores, 2009](https://www.image-net.org/static_files/papers/imagenet_cvpr09.pdf).
+
+El tamaño cambia la naturaleza del problema. Reconocer dígitos centrados sobre un fondo sencillo no es lo mismo que reconocer perros, vehículos o instrumentos con distintas poses, fondos, iluminaciones y escalas.
+
+Un modelo con mayor capacidad necesita más ejemplos para evitar limitarse a memorizar el conjunto de entrenamiento. ImageNet aportó tanto datos como un punto común de comparación entre métodos.
+
+## AlexNet: la coincidencia de varias piezas
+
+En 2012, Alex Krizhevsky, Ilya Sutskever y Geoffrey Hinton entrenaron una CNN profunda para el desafío ImageNet.
+
+La red que hoy llamamos AlexNet tenía:
+
+- cinco capas convolucionales;
+- tres capas completamente conectadas;
+- unos 60 millones de parámetros;
+- activaciones ReLU;
+- max pooling;
+- *data augmentation*;
+- dropout;
+- y una implementación optimizada sobre dos GPU GTX 580 de 3 GB.
+
+El modelo se entrenó con aproximadamente 1,2 millones de imágenes pertenecientes a 1.000 clases. La participación presentada al desafío obtuvo un error *top-5* del 15,3 %, frente al 26,2 % de la segunda clasificada. [Krizhevsky, Sutskever y Hinton, 2012](https://proceedings.neurips.cc/paper_files/paper/2012/file/c399862d3b9d6b76c8436e924a68c45b-Paper.pdf).
+
+El error *top-5* considera correcta una predicción si la categoría real aparece entre las cinco opciones con mayor probabilidad.
+
+No hubo un único truco mágico.
+
+Las convoluciones incorporaban localidad y pesos compartidos. ReLU aceleraba el entrenamiento frente a activaciones saturables. El aumento artificial de datos mediante recortes, reflejos y variaciones de color ayudaba a generalizar. Dropout combatía la dependencia excesiva entre unidades. Las GPU permitían entrenar una red que, incluso así, tardaba entre cinco y seis días.
+
+Y el conjunto de datos proporcionaba la diversidad necesaria para que una arquitectura grande aprendiera algo útil.
+
+AlexNet no inventó las CNN, las activaciones rectificadas, el backpropagation ni el entrenamiento sobre GPU. Su importancia histórica proviene de combinar eficazmente varias líneas anteriores y demostrar una mejora muy visible en una competición influyente.
+
+## Qué aprende realmente una CNN
+
+Cuando una CNN recibe una imagen no la recorre como una persona que enumera objetos conscientemente.
+
+Realiza transformaciones numéricas sucesivas. Cada filtro produce respuestas. Las activaciones introducen no linealidad. Las reducciones modifican la resolución. Las capas finales convierten las representaciones obtenidas en puntuaciones para cada categoría.
+
+Durante el entrenamiento, backpropagation calcula cómo influye cada filtro en la pérdida. Los filtros se actualizan, y la jerarquía completa se adapta conjuntamente.
+
+Esta capacidad también tiene límites. Una CNN puede aprender correlaciones espurias: asociar una clase con un fondo, una marca de agua o una textura frecuente. Puede fallar ante cambios de distribución, manipulaciones cuidadosamente diseñadas o situaciones poco representadas en sus datos.
+
+Incorporar estructura espacial ayuda a aprender. No equivale a comprender una escena como lo hace un ser humano.
+
+## Lo que las convoluciones añadieron al camino
+
+El perceptrón nos enseñó a ajustar una frontera. Las redes multicapa nos permitieron aprender representaciones. Las GPU hicieron posible repetir el cálculo a gran escala.
+
+Las CNN añadieron otra idea: **la arquitectura puede incorporar conocimiento sobre la estructura del problema**.
+
+Una imagen no es una lista arbitraria de números. Tiene vecindades, patrones repetidos y jerarquías espaciales. Al diseñar una red que respeta esas propiedades, necesitamos menos parámetros y obtenemos una forma de aprendizaje más adecuada al dominio.
+
+Este principio continuará apareciendo. Para trabajar con secuencias tendremos que representar orden y memoria. Para trabajar con lenguaje necesitaremos descubrir relaciones entre elementos que pueden estar muy separados.
+
+### Fuentes para profundizar
+
+1. Hubel y Wiesel, [*Receptive Fields, Binocular Interaction and Functional Architecture in the Cat’s Visual Cortex*](https://pmc.ncbi.nlm.nih.gov/articles/PMC1359523/) (1962).
+2. Fukushima, [*Neocognitron: A Self-organizing Neural Network Model for a Mechanism of Pattern Recognition Unaffected by Shift in Position*](https://pubmed.ncbi.nlm.nih.gov/7370364/) (1980).
+3. LeCun, Bottou, Bengio y Haffner, [*Gradient-Based Learning Applied to Document Recognition*](https://proceedingsoftheieee.ieee.org/gradient-based-learning-applied-to-document-recognition/) (1998).
+4. Deng y colaboradores, [*ImageNet: A Large-Scale Hierarchical Image Database*](https://www.image-net.org/static_files/papers/imagenet_cvpr09.pdf) (2009).
+5. Krizhevsky, Sutskever y Hinton, [*ImageNet Classification with Deep Convolutional Neural Networks*](https://proceedings.neurips.cc/paper_files/paper/2012/file/c399862d3b9d6b76c8436e924a68c45b-Paper.pdf) (2012).
+
+## Next chapter
+
+### Propuesta para el siguiente capítulo
+
+**Capítulo 5 · Cuando las redes dejaron de ser protagonistas: inviernos de la IA y aprendizaje estadístico**
+
+Entre el entusiasmo inicial por el perceptrón y el éxito público de AlexNet hubo décadas en las que las redes neuronales no dominaron la inteligencia artificial. El próximo capítulo explicará por qué: expectativas exageradas, límites técnicos, ordenadores insuficientes, ausencia de grandes conjuntos de datos y competencia de otros enfoques. Veremos el auge de los sistemas expertos y por qué también atravesaron una crisis, antes de estudiar cómo métodos estadísticos como regresión logística, árboles, máquinas de vectores soporte y modelos probabilísticos cambiaron la disciplina. La intención será mostrar que el deep learning no reemplazó un vacío, sino un ecosistema de técnicas que todavía sigue siendo útil.
+
+Las tres preguntas que resolverá:
+
+1. ¿Hubo realmente un único “invierno de la IA”?
+2. ¿Por qué las redes neuronales perdieron protagonismo pese a avances como LeNet?
+3. ¿Qué aportó el aprendizaje estadístico que aún conserva valor hoy?
+
+Si te interesa, recuperaremos esta parte histórica antes de continuar con redes recurrentes y lenguaje; también puedes elegir otro rumbo.
