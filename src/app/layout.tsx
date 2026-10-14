@@ -3,10 +3,12 @@ import { Inter } from 'next/font/google'
 import Script from 'next/script'
 import './globals.css'
 import Providers from '@/components/Providers'
+import { SITE_URL } from '@/lib/site'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: 'Cayetano Biehler — Backend-focused Software Engineer',
   description:
     'Software Engineer based in Málaga. Backend, APIs, databases, full-stack. 4+ years building production applications.',

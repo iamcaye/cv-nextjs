@@ -10,6 +10,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
+        serif: ['var(--font-serif)', 'Georgia', 'Cambria', 'serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
       },
     },

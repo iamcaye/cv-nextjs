@@ -1,0 +1,190 @@
+---
+title: "How GPUs Work"
+slug: "how-gpus-work"
+chapter: 2
+description: "Understanding GPU architecture and parallel computing: why a chip designed to shade pixels ended up training the world's AI models."
+publishedAt: "2026-10-14"
+category: "Computing"
+tags:
+  - GPU
+  - Hardware
+  - Parallel Computing
+  - Artificial Intelligence
+status: "published"
+nextChapterSuggestion: "How the Internet Works"
+---
+
+A 4K screen has a little over eight million pixels. At 60 frames per second, a game has to decide the colour of each of them sixty times a second: roughly half a billion small, independent calculations every second, before counting lighting, shadows or reflections. No general-purpose processor of the 1990s could keep up, so the industry built a different kind of chip.
+
+That chip, the graphics processing unit, turned out to be good at something much broader than graphics: doing the same arithmetic on huge amounts of data at once. Training a neural network is mostly that. This chapter explains what makes a GPU different from a CPU, how it is organised internally, and why those design choices map so well onto modern AI.
+
+## Origins: pixels are embarrassingly parallel
+
+Early PCs drew graphics with the CPU and a simple *framebuffer*, a chunk of memory whose contents were scanned out to the monitor. Through the 1980s and early 1990s, workstation makers such as Silicon Graphics built expensive dedicated hardware for 3D rendering, but consumer machines mostly did it in software.
+
+3D rendering has a property that makes it ideal for specialised hardware. To draw a scene you:
+
+1. **Transform** the corners (vertices) of thousands of triangles from 3D world coordinates to 2D screen positions.
+2. **Rasterise** each triangle: work out which pixels it covers.
+3. **Shade** each covered pixel: compute its colour from textures and lighting.
+
+Each vertex can be transformed independently of the others, and each pixel can be shaded independently of its neighbours. Computer scientists call this *embarrassingly parallel*: the work splits into many pieces that never need to talk to each other.
+
+In 1996, 3dfx's Voodoo card took over rasterisation and texturing in consumer PCs and made 3D games dramatically smoother. In 1999, NVIDIA's GeForce 256 also moved the transform and lighting stage onto the card, and NVIDIA marketed it as the first "GPU". These chips were **fixed-function**: hard-wired circuits for one particular rendering pipeline.
+
+## From fixed function to programmable
+
+Fixed hardware meant every game's lighting looked broadly the same. Starting with chips such as the GeForce 3 in 2001, GPUs became **programmable**: developers could write small programs called *shaders* that ran for every vertex or every pixel.
+
+Researchers quickly noticed that a pixel shader is just a function applied to every element of a 2D array, in parallel. Encode your data as a texture, write the computation as a shader, "draw" a rectangle covering the output, and read the result back. Through the early 2000s, people used this trick for physics simulations, linear algebra and database operations. It worked, but it meant disguising every problem as graphics.
+
+Two changes in 2006 and 2007 removed the disguise:
+
+- **Unified shaders.** NVIDIA's GeForce 8800 (the G80 architecture) replaced separate vertex and pixel units with a single pool of identical, general-purpose processors.
+- **CUDA.** A programming model and C-like language that let developers write code for those processors directly, with no graphics API involved. OpenCL followed in 2009 as a vendor-neutral alternative.
+
+From then on, the GPU was a general parallel computer that also happened to be very good at graphics.
+
+## CPU versus GPU: latency versus throughput
+
+The clearest way to understand a GPU is to compare it with a CPU, because they spend their transistors on opposite goals.
+
+A **CPU is optimised for latency**: finishing one sequence of instructions as quickly as possible. It has a handful of large, complex cores. Much of each core's area goes to machinery that keeps a single thread moving: deep caches so data is nearby, branch predictors that guess which way an `if` will go, and out-of-order execution that reorders instructions to avoid waiting.
+
+A **GPU is optimised for throughput**: finishing the most total work per second, even if any individual piece takes longer. It has thousands of small, simple arithmetic lanes and very little of that per-thread machinery. Instead of avoiding waits, it hides them by always having other work ready.
+
+```text
+CPU: few big cores                    GPU: many small lanes
+┌──────────┬──────────┐               ┌──┬──┬──┬──┬──┬──┬──┬──┬──┬──┐
+│  core    │  core    │               │░░│░░│░░│░░│░░│░░│░░│░░│░░│░░│
+│ +control │ +control │               ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+├──────────┼──────────┤               │░░│░░│░░│░░│░░│░░│░░│░░│░░│░░│
+│  core    │  core    │               ├──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤
+│ +control │ +control │               │░░│░░│░░│░░│░░│░░│░░│░░│░░│░░│
+├──────────┴──────────┤               ├──┴──┴──┴──┴──┴──┴──┴──┴──┴──┤
+│     large cache     │               │   small caches, wide memory │
+└─────────────────────┘               └─────────────────────────────┘
+```
+
+An analogy that holds up reasonably well: a CPU is a few expert chefs who can cook any dish quickly; a GPU is a kitchen with thousands of line cooks who can each only follow simple instructions, but who can make ten thousand identical sandwiches at once.
+
+## Inside a modern GPU
+
+The details vary between vendors and generations. This section uses NVIDIA's terminology because CUDA is the most common programming model, but AMD and others follow broadly similar principles.
+
+### Streaming multiprocessors
+
+A GPU is built from repeated blocks called **streaming multiprocessors** (SMs). A data-centre GPU such as NVIDIA's H100 has over a hundred of them. Each SM contains:
+
+- dozens of arithmetic units for integer and floating-point maths (marketed as "CUDA cores"),
+- specialised **tensor cores** for small matrix multiplications,
+- a large **register file**, tens of thousands of registers shared by all threads on the SM,
+- a block of fast on-chip **shared memory**, which programmers manage explicitly,
+- schedulers that decide which instructions issue each cycle.
+
+### Warps and SIMT
+
+GPU threads are not scheduled one at a time. They are grouped into **warps** of 32 threads that execute the same instruction at the same moment, each on its own data. NVIDIA calls this model **SIMT**: single instruction, multiple threads.
+
+The consequence is important. If threads in a warp take different branches of an `if`, the hardware runs both paths one after the other, disabling the threads that did not take each path. This is called **divergence**, and it can halve performance or worse. GPU code runs best when neighbouring threads do the same thing.
+
+### Hiding latency with oversubscription
+
+Reading from the GPU's main memory takes hundreds of clock cycles. A CPU fights that delay with big caches and prediction. A GPU takes a different approach: each SM keeps many warps resident at once, far more than it can execute in a single cycle. When one warp stalls waiting for memory, the scheduler switches to another that is ready, at essentially zero cost, because every warp's registers are already on the chip.
+
+That is why GPUs need *lots* of threads to perform well. With too few, there is nothing to switch to and the arithmetic units sit idle. The fraction of an SM's capacity that is filled with active warps is called **occupancy**.
+
+### The memory hierarchy
+
+| Level | Scope | Rough size | Speed |
+|---|---|---|---|
+| Registers | One thread | Hundreds of bytes per thread | Fastest |
+| Shared memory / L1 | One SM | Up to a few hundred KB | Very fast, on-chip |
+| L2 cache | Whole GPU | Tens of MB | Fast, on-chip |
+| HBM / GDDR | Whole GPU | Tens of GB | Slow per access, very high total bandwidth |
+| Host RAM over PCIe | CPU side | Hundreds of GB | Slowest from the GPU's view |
+
+Data-centre GPUs use **high-bandwidth memory** (HBM): DRAM dies stacked next to the GPU and connected through thousands of wires. An H100 SXM moves roughly 3 TB of data per second to and from its HBM, several times more than a high-end server CPU. Even so, keeping the arithmetic units fed is the central problem of GPU programming.
+
+One pattern matters most. When the 32 threads of a warp read 32 consecutive addresses, the hardware **coalesces** them into a few wide memory transactions. When they read scattered addresses, each access may need its own transaction and effective bandwidth collapses.
+
+## Programming model: a first kernel
+
+A function that runs on the GPU is called a **kernel**. You launch it over a *grid* of *blocks*, each containing many *threads*. Each thread works out which piece of data it owns from its block and thread indices.
+
+```cpp title="vector_add.cu"
+__global__ void vector_add(const float* a, const float* b, float* out, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;  // this thread's element
+    if (i < n) {
+        out[i] = a[i] + b[i];
+    }
+}
+
+// Host side: one thread per element, 256 threads per block.
+int threads = 256;
+int blocks = (n + threads - 1) / threads;
+vector_add<<<blocks, threads>>>(d_a, d_b, d_out, n);
+```
+
+There is no loop. Instead of one thread walking through a million elements, a million threads each handle one. The `if (i < n)` guard handles the last block when `n` is not a multiple of 256. Notice also that thread `i` reads `a[i]`, so adjacent threads read adjacent addresses and the accesses coalesce.
+
+Blocks are distributed across SMs, and threads within a block can cooperate through shared memory and synchronise with a barrier. Threads in different blocks cannot synchronise directly during a kernel, which is what lets the hardware schedule blocks in any order on any number of SMs. The same program runs on a small laptop GPU and a large data-centre one.
+
+## Why AI runs on GPUs
+
+Neural networks, as described in [the previous chapter](/how-it-works/from-perceptrons-to-llms), are dominated by one operation: **matrix multiplication**. A Transformer layer multiplies token embeddings by weight matrices to produce queries, keys and values, multiplies queries by keys for attention scores, and runs feed-forward layers that are, again, matrix multiplications.
+
+Matrix multiplication is close to ideal GPU work. Every output element is an independent dot product, and every input value is reused many times. For two $n \times n$ matrices, the multiplication performs about $2n^3$ floating-point operations while reading only $2n^2$ input values. The ratio between the two is the **arithmetic intensity**:
+
+$$
+\text{arithmetic intensity} = \frac{\text{FLOPs performed}}{\text{bytes moved}}
+$$
+
+Operations with high intensity are limited by compute; operations with low intensity, such as adding two vectors, are limited by memory bandwidth. This relationship is often drawn as a *roofline* chart, and it explains a lot about GPU performance: large matrix multiplications can approach a chip's peak arithmetic rate, while element-wise operations rarely get close.
+
+### Tensor cores and smaller numbers
+
+In 2017, NVIDIA's Volta architecture added **tensor cores**: units that multiply small matrix tiles (for example 4×4) and accumulate the result in a single operation, rather than doing one multiply-add per instruction. Each new generation has made them faster and added support for smaller number formats:
+
+- **FP32** (32-bit floating point) was the traditional default for training.
+- **FP16 and BF16** halve the memory and bandwidth per value. BF16 keeps FP32's exponent range, which makes training more stable.
+- **FP8 and FP4**, introduced in the Hopper (2022) and Blackwell (2024) generations, push this further, mainly for inference.
+
+Neural networks tolerate this loss of precision surprisingly well, and halving the size of each number roughly doubles how many values the chip can move and multiply per second. Much of the AI performance gain of the last decade has come from this combination: more tensor cores, smaller numbers, and faster memory.
+
+### Beyond one chip
+
+Frontier models do not fit on a single GPU, so training spreads them across thousands. This creates a new bottleneck: moving data *between* GPUs. Dedicated interconnects such as NVLink connect GPUs within a server at far higher bandwidth than PCIe, and fast networks link servers together. At this scale, system design (networking, power delivery and cooling) matters as much as the chip itself.
+
+## Practical applications
+
+- **Graphics.** Still the original job: games, film rendering, CAD, and real-time ray tracing with dedicated RT cores since 2018.
+- **AI training and inference.** The dominant data-centre workload today.
+- **Scientific computing.** Weather and climate models, molecular dynamics, fluid simulation, genomics.
+- **Media.** Dedicated encoder and decoder blocks handle video compression for streaming and video calls.
+- **Data processing.** GPU-accelerated databases and dataframe libraries for analytical queries over large tables.
+
+## Limitations and misconceptions
+
+**"A GPU has ten thousand cores."** Marketing counts each arithmetic lane as a "core". A CPU core can fetch, decode and schedule its own instructions; a CUDA core cannot. A more honest comparison is a GPU's SMs against a CPU's cores, with each SM being a very wide vector processor.
+
+**"GPUs are faster than CPUs."** Only for parallel work. Code with lots of branching, little data, or long chains of dependent steps (parsing a file, running most of an operating system, serving a typical web request) is faster on a CPU. Launching a kernel and copying data over PCIe also has fixed overheads that swamp small tasks.
+
+**Memory is often the real limit.** Many workloads, including generating text with a large language model one token at a time, are bound by memory bandwidth rather than arithmetic. A chip's headline TFLOPS figure is a ceiling that few programs reach.
+
+**Portability has a cost.** CUDA only runs on NVIDIA hardware. Alternatives such as AMD's ROCm, Apple's Metal, Vulkan compute and higher-level compilers exist, but much of the AI software stack was built around CUDA first. That lock-in is as much a part of the GPU story as the silicon.
+
+## What comes next
+
+GPUs are becoming less "graphics" and more "matrix engine with some graphics attached". Several trends are visible:
+
+- **Specialised accelerators** such as Google's TPUs and various inference chips drop graphics entirely and dedicate even more area to matrix units and on-chip memory.
+- **Memory is the frontier.** More HBM stacks, higher bandwidth, and designs that place memory and compute closer together.
+- **Chiplets.** Building one large processor from several smaller dies in a single package to get around the manufacturing limits of one huge die.
+- **Power.** A single data-centre GPU can draw around a kilowatt, and power and cooling now constrain where and how fast AI capacity can be built.
+
+The core idea has not changed since the GeForce 256: when the same operation must be applied to millions of independent pieces of data, build lots of simple hardware and keep it busy.
+
+## Next chapter
+
+GPUs in a training cluster spend a surprising amount of time waiting for data from other machines. That data travels the same way your messages, videos and web pages do. The next chapter steps back from the chip to the network: **how the Internet works**, from packets and routing to the protocols that make a global network feel like a single system.
