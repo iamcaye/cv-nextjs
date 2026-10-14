@@ -1,0 +1,680 @@
+---
+title: "Aprender Por Capas: Descenso De Gradiente Y Backpropagation"
+slug: "aprender-por-capas-backpropagation"
+chapter: 3
+description: "Cómo las redes multicapa aprenden representaciones mediante descenso de gradiente y backpropagation, con un ejemplo numérico completo."
+publishedAt: "2026-10-14"
+category: "Artificial Intelligence"
+tags:
+  - Neural Networks
+  - Backpropagation
+  - Gradient Descent
+status: "published"
+nextChapterSuggestion: "Cómo una máquina aprende a ver: de Neocognitron y LeNet a AlexNet"
+---
+
+El perceptrón del primer capítulo podía aprender una frontera lineal. Si los datos podían separarse mediante una recta —o mediante un hiperplano en dimensiones superiores—, ajustaba sus pesos hasta encontrarla.
+
+Pero XOR reveló su límite: algunas relaciones no pueden representarse mediante una única frontera.
+
+La solución intuitiva consiste en conectar varios perceptrones. Unas unidades identifican patrones sencillos y otras combinan sus resultados para construir patrones más complejos. El problema es que ya no resulta evidente cómo entrenar las conexiones interiores.
+
+Si la respuesta final es incorrecta, sabemos que algo debe cambiar. Pero ¿qué peso es responsable? ¿Cuánto debería modificarse? ¿Y en qué dirección?
+
+Este es el **problema de asignación de crédito**. Backpropagation es el mecanismo que permite responderlo.
+
+## Una red como una cadena de transformaciones
+
+Una red neuronal multicapa recibe una entrada y la transforma sucesivamente:
+
+
+
+$$
+x \rightarrow h_1 \rightarrow h_2 \rightarrow \hat y
+$$
+
+
+
+Las capas intermedias se denominan **capas ocultas** porque no corresponden directamente ni a los datos de entrada ni a la respuesta final.
+
+Una capa sencilla realiza dos operaciones. Primero calcula una combinación lineal:
+
+
+
+$$
+z=Wx+b
+$$
+
+
+
+Después aplica una función de activación:
+
+
+
+$$
+h=f(z)
+$$
+
+
+
+Aquí:
+
+- $x$ contiene las entradas.
+- $W$ contiene los pesos.
+- $b$ contiene los sesgos.
+- $f$ es una función de activación.
+- $h$ es la representación producida por la capa.
+
+Una red con dos capas podría escribirse así:
+
+
+
+$$
+h=f(W_1x+b_1)
+$$
+
+
+
+$$
+\hat y=g(W_2h+b_2)
+$$
+
+
+
+La primera capa no tiene por qué producir una clasificación reconocible. Puede aprender características intermedias que faciliten el trabajo de la segunda.
+
+Por ejemplo, para resolver XOR, unas unidades pueden construir regiones distintas del espacio y la unidad final puede combinarlas. La frontera resultante ya no tiene por qué ser una única recta.
+
+## Por qué necesitamos funciones no lineales
+
+Podría parecer que basta con encadenar muchas matrices. Supongamos dos capas sin funciones de activación:
+
+
+
+$$
+h=W_1x+b_1
+$$
+
+
+
+$$
+\hat y=W_2h+b_2
+$$
+
+
+
+Sustituimos $h$ en la segunda expresión:
+
+
+
+$$
+\hat y=W_2(W_1x+b_1)+b_2
+$$
+
+
+
+Reordenando:
+
+
+
+$$
+\hat y=(W_2W_1)x+(W_2b_1+b_2)
+$$
+
+
+
+Podemos llamar $W'$ al producto $W_2W_1$ y $b'$ al resto:
+
+
+
+$$
+\hat y=W'x+b'
+$$
+
+
+
+Es otra transformación lineal. Podríamos apilar cien capas y, sin activaciones no lineales entre ellas, toda la red seguiría siendo equivalente a una sola capa lineal.
+
+La **no linealidad** impide ese colapso.
+
+Una activación muy utilizada es ReLU:
+
+
+
+$$
+\operatorname{ReLU}(z)=\max(0,z)
+$$
+
+
+
+Si el valor es negativo, devuelve cero; si es positivo, lo mantiene. Aunque su regla sea sencilla, permite que distintas unidades se activen en regiones diferentes. La red completa puede construir así una función formada por múltiples piezas lineales.
+
+Las capas adquieren capacidad para representar el problema. Todavía necesitamos encontrar sus pesos.
+
+## Necesitamos convertir el error en un número
+
+Para entrenar la red debemos medir la diferencia entre la predicción $\hat y$ y el resultado esperado $y$. Esa medida se denomina **función de pérdida**.
+
+Para una regresión sencilla podemos utilizar el error cuadrático:
+
+
+
+$$
+L=\frac{1}{2}(\hat y-y)^2
+$$
+
+
+
+El factor $\frac{1}{2}$ facilita la derivación y no cambia la posición del mínimo.
+
+Si el objetivo es $y=1$ y la red predice $\hat y=0{,}4$:
+
+
+
+$$
+L=\frac{1}{2}(0{,}4-1)^2=0{,}18
+$$
+
+
+
+El entrenamiento se convierte ahora en un problema de optimización:
+
+> Encontrar los valores de los parámetros que reduzcan la pérdida.
+
+Una red moderna puede tener millones o miles de millones de parámetros. No podemos probar todas sus combinaciones. Necesitamos estimar qué ocurrirá con la pérdida si cambiamos ligeramente cada uno.
+
+Esa información la proporcionan las derivadas.
+
+## Una derivada mide sensibilidad
+
+La derivada responde a una pregunta local:
+
+> Si modifico ligeramente este valor, ¿cómo cambia el resultado?
+
+Si tenemos:
+
+
+
+$$
+f(w)=w^2
+$$
+
+
+
+su derivada es:
+
+
+
+$$
+\frac{df}{dw}=2w
+$$
+
+
+
+En $w=3$, la derivada vale 6. Cerca de ese punto, aumentar un poco $w$ hace crecer $f$. Para reducirla debemos movernos en sentido contrario.
+
+Cuando tenemos muchos parámetros reunimos todas las derivadas parciales en un vector llamado **gradiente**:
+
+
+
+$$
+\nabla L= \left[ \frac{\partial L}{\partial w_1}, \frac{\partial L}{\partial w_2}, \dots \right]
+$$
+
+
+
+Cada componente describe la sensibilidad de la pérdida respecto a un parámetro, manteniendo momentáneamente los demás constantes.
+
+El gradiente apunta hacia la dirección de mayor crecimiento local. Por eso actualizamos los parámetros en la dirección opuesta:
+
+
+
+$$
+\theta\leftarrow\theta-\eta\nabla_\theta L
+$$
+
+
+
+Aquí $\theta$ representa todos los parámetros y $\eta$ es la tasa de aprendizaje.
+
+Este procedimiento se llama **descenso de gradiente**.
+
+Si la tasa es demasiado pequeña, el avance puede ser lento. Si es demasiado grande, podemos saltarnos regiones favorables, oscilar o desestabilizar el entrenamiento.
+
+El gradiente tampoco promete encontrar el mejor resultado global. Describe únicamente la pendiente alrededor del punto actual.
+
+## La regla de la cadena
+
+Una red no calcula la pérdida directamente desde un peso. Entre ambos aparecen numerosas operaciones.
+
+Consideremos:
+
+
+
+$$
+w \rightarrow z \rightarrow h \rightarrow \hat y \rightarrow L
+$$
+
+
+
+Queremos conocer:
+
+
+
+$$
+\frac{\partial L}{\partial w}
+$$
+
+
+
+La regla de la cadena permite descomponer esta relación:
+
+
+
+$$
+\frac{\partial L}{\partial w} = \frac{\partial L}{\partial \hat y} \frac{\partial \hat y}{\partial h} \frac{\partial h}{\partial z} \frac{\partial z}{\partial w}
+$$
+
+
+
+Cada factor describe una relación local. Una operación solo necesita saber cómo cambia su salida cuando cambian sus entradas.
+
+Backpropagation recorre esas operaciones en orden inverso y combina sus derivadas mediante la regla de la cadena. Es un proceso local que permite calcular eficientemente la contribución de todos los parámetros a la pérdida. [cs231n.github.io](https://cs231n.github.io/optimization-2/)
+
+## Sigamos una red completa
+
+Construyamos una red mínima con una entrada, una unidad oculta y una salida:
+
+
+
+$$
+z_1=w_1x+b_1
+$$
+
+
+
+$$
+h=\operatorname{ReLU}(z_1)
+$$
+
+
+
+$$
+\hat y=w_2h+b_2
+$$
+
+
+
+$$
+L=\frac{1}{2}(\hat y-y)^2
+$$
+
+
+
+Usaremos:
+
+
+
+$$
+x=2,\qquad y=1
+$$
+
+
+
+$$
+w_1=0{,}5,\quad b_1=0,\quad w_2=0{,}4,\quad b_2=0
+$$
+
+
+
+### Paso hacia delante
+
+Primera combinación:
+
+
+
+$$
+z_1=0{,}5\cdot2=1
+$$
+
+
+
+Activación:
+
+
+
+$$
+h=\operatorname{ReLU}(1)=1
+$$
+
+
+
+Salida:
+
+
+
+$$
+\hat y=0{,}4\cdot1=0{,}4
+$$
+
+
+
+Pérdida:
+
+
+
+$$
+L=\frac{1}{2}(0{,}4-1)^2=0{,}18
+$$
+
+
+
+Este recorrido desde la entrada hasta la pérdida es el **forward pass**.
+
+Durante él guardamos ciertos resultados intermedios. Los necesitaremos al volver hacia atrás.
+
+### Paso hacia atrás
+
+Empezamos por la pérdida:
+
+
+
+$$
+\frac{\partial L}{\partial \hat y} =\hat y-y =0{,}4-1 =-0{,}6
+$$
+
+
+
+El signo negativo indica que, localmente, aumentar la predicción reduciría la pérdida.
+
+La salida era:
+
+
+
+$$
+\hat y=w_2h+b_2
+$$
+
+
+
+Por tanto:
+
+
+
+$$
+\frac{\partial \hat y}{\partial w_2}=h=1
+$$
+
+
+
+Aplicamos la regla de la cadena:
+
+
+
+$$
+\frac{\partial L}{\partial w_2} = \frac{\partial L}{\partial \hat y} \frac{\partial \hat y}{\partial w_2} = -0{,}6\cdot1 =-0{,}6
+$$
+
+
+
+Para el sesgo:
+
+
+
+$$
+\frac{\partial L}{\partial b_2}=-0{,}6
+$$
+
+
+
+Ahora necesitamos averiguar cuánto influyó la unidad oculta:
+
+
+
+$$
+\frac{\partial \hat y}{\partial h}=w_2=0{,}4
+$$
+
+
+
+$$
+\frac{\partial L}{\partial h} = -0{,}6\cdot0{,}4 =-0{,}24
+$$
+
+
+
+La derivada de ReLU vale uno cuando su entrada es positiva:
+
+
+
+$$
+\frac{\partial h}{\partial z_1}=1
+$$
+
+
+
+Así que:
+
+
+
+$$
+\frac{\partial L}{\partial z_1} =-0{,}24
+$$
+
+
+
+Como:
+
+
+
+$$
+z_1=w_1x+b_1
+$$
+
+
+
+tenemos:
+
+
+
+$$
+\frac{\partial z_1}{\partial w_1}=x=2
+$$
+
+
+
+Finalmente:
+
+
+
+$$
+\frac{\partial L}{\partial w_1} = -0{,}24\cdot2 =-0{,}48
+$$
+
+
+
+Y para el sesgo:
+
+
+
+$$
+\frac{\partial L}{\partial b_1}=-0{,}24
+$$
+
+
+
+Ya conocemos la influencia local de cada parámetro.
+
+## Actualizar los pesos es otro proceso
+
+Utilicemos una tasa de aprendizaje de $0{,}1$:
+
+
+
+$$
+w_2\leftarrow0{,}4-0{,}1(-0{,}6)=0{,}46
+$$
+
+
+
+$$
+b_2\leftarrow0-0{,}1(-0{,}6)=0{,}06
+$$
+
+
+
+$$
+w_1\leftarrow0{,}5-0{,}1(-0{,}48)=0{,}548
+$$
+
+
+
+$$
+b_1\leftarrow0-0{,}1(-0{,}24)=0{,}024
+$$
+
+
+
+Con estos valores hacemos otro forward pass:
+
+
+
+$$
+z_1=0{,}548\cdot2+0{,}024=1{,}12
+$$
+
+
+
+$$
+\hat y=0{,}46\cdot1{,}12+0{,}06=0{,}5752
+$$
+
+
+
+La nueva pérdida es aproximadamente:
+
+
+
+$$
+L=\frac{1}{2}(0{,}5752-1)^2\approx0{,}0902
+$$
+
+
+
+Ha bajado de $0{,}18$ a aproximadamente $0{,}09$.
+
+Esto permite separar dos conceptos que suelen mezclarse:
+
+- **Backpropagation calcula los gradientes.**
+- **El optimizador decide cómo utilizar esos gradientes para actualizar los parámetros.**
+
+El descenso de gradiente es el optimizador más sencillo. Otros, como SGD con momento, RMSProp o Adam, mantienen información adicional para decidir el tamaño y la dirección de las actualizaciones.
+
+## Cómo se entrena con muchos ejemplos
+
+Calcular el gradiente utilizando todo el conjunto de datos antes de cada actualización puede ser muy costoso. Actualizarlo después de un único ejemplo produce estimaciones rápidas, pero ruidosas.
+
+La solución habitual es utilizar un **mini-batch**: un grupo pequeño de ejemplos.
+
+El ciclo de entrenamiento queda así:
+
+1. Seleccionar un lote de ejemplos.
+2. Ejecutar el forward pass.
+3. Calcular la pérdida media.
+4. Ejecutar backpropagation.
+5. Actualizar los parámetros.
+6. Repetir con otro lote.
+
+Cuando el modelo ha recorrido una vez todos los ejemplos disponibles, ha completado una **época**.
+
+Los mini-batches convierten buena parte del cálculo en operaciones con matrices. Esa es la conexión directa con el capítulo anterior: una GPU puede procesar muchos ejemplos y unidades de una capa en paralelo.
+
+## Qué hace realmente un framework moderno
+
+Cuando escribes algo similar a esto en PyTorch:
+
+```python
+prediction = model(x)
+loss = loss_fn(prediction, target)
+
+optimizer.zero_grad()
+loss.backward()
+optimizer.step()
+```
+
+están ocurriendo tres cosas diferentes:
+
+- `model(x)` construye y ejecuta el cálculo hacia delante.
+- `loss.backward()` recorre el grafo en sentido inverso y calcula gradientes.
+- `optimizer.step()` modifica los parámetros.
+
+Las bibliotecas utilizan **diferenciación automática**. Cada operación conoce su derivada local y registra las relaciones necesarias para el backward pass. Si una variable participa en varias ramas, las contribuciones a su gradiente deben sumarse. [cs231n.github.io](https://cs231n.github.io/optimization-2/)
+
+Backpropagation puede entenderse como una aplicación especializada del modo inverso de diferenciación automática.
+
+Su historia, sin embargo, no pertenece a un único descubrimiento. Seppo Linnainmaa publicó en 1970 un método de diferenciación automática en modo inverso para composiciones de funciones. Paul Werbos describió su aplicación a redes neuronales en su tesis de 1974. El artículo de David Rumelhart, Geoffrey Hinton y Ronald Williams de 1986 desempeñó un papel decisivo al demostrar y popularizar el aprendizaje de representaciones internas mediante este procedimiento. [people.idsia.ch](https://people.idsia.ch/~juergen/who-invented-backpropagation-1970.html)
+
+Por tanto, resulta más correcto hablar de una evolución con desarrollos y redescubrimientos que atribuir todo el método a una sola fecha.
+
+## Las capas ocultas aprenden representaciones
+
+La aportación profunda de backpropagation no es solo que permita ajustar más pesos. Permite que las capas ocultas desarrollen representaciones útiles sin que tengamos que indicar explícitamente qué debería detectar cada unidad.
+
+En visión, una capa puede responder a bordes y otra a combinaciones de formas. En lenguaje, una representación puede capturar relaciones entre palabras o posiciones. Estas descripciones son interpretaciones aproximadas: una unidad individual no siempre corresponde a un concepto humano limpio.
+
+El artículo de Rumelhart, Hinton y Williams enfatizaba precisamente que las unidades ocultas podían llegar a representar características importantes del dominio mediante los ajustes de pesos. [Nature](https://www.nature.com/articles/323533a0)
+
+La red no recibe una lista que diga «esta unidad debe detectar una esquina». Recibe ejemplos, una arquitectura, una función de pérdida y un procedimiento de optimización. Las representaciones emergen como parte del intento de reducir el error.
+
+## Backpropagation tampoco lo resuelve todo
+
+El método nos dice cómo calcular gradientes, pero estos pueden presentar problemas.
+
+En una red muy profunda, la regla de la cadena multiplica numerosas derivadas. Si muchas son menores que uno, el gradiente puede volverse diminuto conforme retrocede: es el **gradiente desvanecido**. Si son mayores que uno, puede crecer de manera incontrolada: es el **gradiente explosivo**.
+
+ReLU ayudó a mitigar algunos problemas de saturación presentes en activaciones como sigmoid, pero introdujo otros. Si una unidad ReLU permanece en la región negativa, su derivada es cero y puede dejar de recibir actualizaciones.
+
+También influyen la inicialización de pesos, la normalización, las conexiones residuales, el optimizador y la estructura concreta de la red.
+
+Y reducir la pérdida de entrenamiento no garantiza aprender la relación que nos interesa. Una red puede memorizar ejemplos, aprovechar correlaciones accidentales o reproducir sesgos presentes en los datos.
+
+Backpropagation optimiza el objetivo que le proporcionamos, no nuestras intenciones no expresadas.
+
+## El puente hacia redes más especializadas
+
+Ya tenemos los ingredientes centrales del aprendizaje profundo:
+
+- capas capaces de transformar representaciones;
+- activaciones no lineales;
+- una pérdida que cuantifica el error;
+- backpropagation para calcular gradientes;
+- un optimizador para actualizar parámetros;
+- y hardware capaz de repetir el proceso a gran escala.
+
+Pero una red totalmente conectada trata cada posición de entrada como algo independiente. En una imagen, eso desaprovecha una propiedad fundamental: los píxeles cercanos suelen estar relacionados y un mismo patrón puede aparecer en distintas posiciones.
+
+La siguiente gran pregunta será cómo incorporar esa estructura espacial al diseño de la red.
+
+### Fuentes para profundizar
+
+1. Rumelhart, Hinton y Williams, [*Learning Representations by Back-propagating Errors*](https://www.nature.com/articles/323533a0), *Nature* (1986).
+2. Paul Werbos, [*Beyond Regression: New Tools for Prediction and Analysis in the Behavioral Sciences*](https://gwern.net/doc/ai/nn/1974-werbos.pdf) (tesis doctoral, 1974).
+3. Baydin y colaboradores, [*Automatic Differentiation in Machine Learning: a Survey*](https://arxiv.org/abs/1502.05767).
+4. Stanford CS231n, [*Backpropagation, Intuitions*](https://cs231n.github.io/optimization-2/).
+5. Michael Nielsen, [*How the Backpropagation Algorithm Works*](https://neuralnetworksanddeeplearning.com/chap2.html).
+
+## Next chapter
+
+### Propuesta para el siguiente capítulo
+
+**Capítulo 4 · Cómo una máquina aprende a ver: de Neocognitron y LeNet a AlexNet**
+
+Ya entendemos cómo entrenar varias capas y cómo las GPU hicieron viable ejecutar sus cálculos a gran escala. El siguiente capítulo explicará por qué las redes totalmente conectadas resultaban poco adecuadas para imágenes y cómo las redes convolucionales aprovecharon la estructura espacial. Seguiremos un filtro mientras recorre una imagen, veremos cómo detecta un patrón independientemente de su posición y explicaremos el papel del *pooling*, los campos receptivos y los pesos compartidos. Después recorreremos la evolución histórica desde Neocognitron y LeNet hasta AlexNet, conectando arquitectura, datos, backpropagation y GPU sin presentar AlexNet como un comienzo aislado.
+
+Las tres preguntas que resolverá:
+
+1. ¿Qué calcula realmente una convolución sobre una imagen?
+2. ¿Por qué compartir pesos reduce drásticamente el número de parámetros?
+3. ¿Qué combinación de ideas hizo que AlexNet destacara en 2012?
+
+Si te interesa, continuaremos por ahí; también puedes sustituirlo por cualquier otro tema.
