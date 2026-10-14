@@ -4,12 +4,14 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { useTheme } from 'next-themes'
 
+// Root-relative anchors so the links also work from /how-it-works pages.
 const navLinks = [
-  { label: 'Projects', href: '#projects' },
-  { label: 'Experience', href: '#experience' },
-  { label: 'Skills', href: '#skills' },
-  { label: 'About', href: '#about' },
-  { label: 'Contact', href: '#contact' },
+  { label: 'Projects', href: '/#projects' },
+  { label: 'Experience', href: '/#experience' },
+  { label: 'Skills', href: '/#skills' },
+  { label: 'How It Works', href: '/how-it-works' },
+  { label: 'About', href: '/#about' },
+  { label: 'Contact', href: '/#contact' },
 ]
 
 export default function Navbar() {
@@ -35,7 +37,7 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 bg-[#fafaf8]/80 dark:bg-[#111111]/80 backdrop-blur-md border-b border-[#e8e6e0] dark:border-[#222]">
       <div className="max-w-5xl mx-auto px-6 md:px-12 h-14 flex items-center justify-between">
         <Link
-          href="#hero"
+          href="/#hero"
           className="font-bold text-sm tracking-wide text-[#111] dark:text-[#fafafa]"
         >
           caye.

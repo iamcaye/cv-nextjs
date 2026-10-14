@@ -1,0 +1,62 @@
+# Opt-in auto-merge for How It Works publication PRs.
+#
+# Disabled unless the repository variable HOW_IT_WORKS_AUTO_MERGE is "true".
+# See docs/how-it-works-publishing.md ("Auto-merge") before enabling.
+#
+# Runs via workflow_run, so this file is always taken from main, never from
+# the pull request being merged. It only *requests* GitHub's native
+# auto-merge (`gh pr merge --auto`), which still waits for every branch
+# protection rule (required checks, reviews, up-to-date branch). It never
+# uses --admin and cannot bypass protection.
+name: How It Works auto-merge
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  enable-auto-merge:
+    name: Enable auto-merge
+    if: >-
+      vars.HOW_IT_WORKS_AUTO_MERGE == 'true' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'how-it-works/chapter-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Request auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          ALLOWED_AUTHOR: ${{ vars.HOW_IT_WORKS_PUBLISHER }}
+        run: |
+          set -euo pipefail
+          pr_json=$(gh pr list --head "$HEAD_BRANCH" --state open --json number,author,headRefOid,isDraft,labels --limit 1)
+          number=$(jq -r '.[0].number // empty' <<<"$pr_json")
+          if [ -z "$number" ]; then echo "No open PR for $HEAD_BRANCH"; exit 0; fi
+
+          head=$(jq -r '.[0].headRefOid' <<<"$pr_json")
+          author=$(jq -r '.[0].author.login' <<<"$pr_json")
+          draft=$(jq -r '.[0].isDraft' <<<"$pr_json")
+          blocked=$(jq -r '[.[0].labels[].name] | index("do-not-merge") != null' <<<"$pr_json")
+
+          if [ "$head" != "$HEAD_SHA" ]; then echo "PR #$number has new commits since CI ran; skipping"; exit 0; fi
+          if [ "$draft" = "true" ]; then echo "PR #$number is a draft; skipping"; exit 0; fi
+          if [ "$blocked" = "true" ]; then echo "PR #$number is labelled do-not-merge; skipping"; exit 0; fi
+          if [ -z "$ALLOWED_AUTHOR" ] || [ "$author" != "$ALLOWED_AUTHOR" ]; then
+            echo "PR #$number author '$author' is not HOW_IT_WORKS_PUBLISHER ('$ALLOWED_AUTHOR'); skipping"
+            exit 0
+          fi
+
+          gh pr merge "$number" --auto --squash --match-head-commit "$HEAD_SHA"
+          echo "Auto-merge requested for PR #$number"

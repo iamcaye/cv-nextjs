@@ -1,0 +1,196 @@
+---
+title: "From Perceptrons to LLMs"
+slug: "from-perceptrons-to-llms"
+chapter: 1
+description: "Seventy years of neural networks: from a single weighted sum in 1958 to models that write, translate and reason about code."
+publishedAt: "2026-10-13"
+category: "Artificial Intelligence"
+tags:
+  - Artificial Intelligence
+  - Neural Networks
+  - Machine Learning
+  - LLM
+status: "published"
+nextChapterSuggestion: "How GPUs Work"
+---
+
+Every time a language model finishes your sentence, it is running an idea that is almost seventy years old: multiply some numbers by some weights, add them up, and decide what to do based on the result. The idea is simple. What took seven decades was learning how to stack it, train it, and feed it enough data and computation for something interesting to happen.
+
+This chapter follows that path, from a machine that could tell left from right on a 20×20 grid of photocells to systems that hold conversations. The aim is not to memorise dates but to understand why each step was needed, because every limitation of the previous generation explains the shape of the next one.
+
+## Origins: can a machine learn from examples?
+
+In 1943, Warren McCulloch and Walter Pitts published a mathematical model of a neuron. Their neuron received binary inputs, and if enough of them were active it "fired". They showed that networks of these units could compute any logical function. What their model could not do was *learn*: someone had to choose the connections by hand.
+
+Frank Rosenblatt changed that in 1958 with the **perceptron**. Working at the Cornell Aeronautical Laboratory, he described a unit whose connection strengths, or *weights*, were adjusted automatically from labelled examples. A hardware version, the Mark I Perceptron, used a grid of photocells as its retina and motor-driven potentiometers as adjustable weights. It learned to distinguish simple shapes.
+
+The perceptron computes a weighted sum of its inputs and passes it through a threshold:
+
+$$
+\hat{y} = \begin{cases} 1 & \text{if } \mathbf{w} \cdot \mathbf{x} + b > 0 \\ 0 & \text{otherwise} \end{cases}
+$$
+
+The learning rule is just as compact. When the prediction is wrong, nudge each weight in the direction that would have made it right:
+
+$$
+w_i \leftarrow w_i + \eta \, (y - \hat{y}) \, x_i
+$$
+
+Here $\eta$ is the learning rate, a small number that controls how big each nudge is. In code, the whole algorithm fits on a screen:
+
+```python title="perceptron.py"
+def train_perceptron(samples, epochs=20, lr=0.1):
+    # samples: list of (features, label) with label in {0, 1}
+    n = len(samples[0][0])
+    w, b = [0.0] * n, 0.0
+    for _ in range(epochs):
+        for x, y in samples:
+            activation = sum(wi * xi for wi, xi in zip(w, x)) + b
+            y_hat = 1 if activation > 0 else 0
+            error = y - y_hat
+            w = [wi + lr * error * xi for wi, xi in zip(w, x)]
+            b += lr * error
+    return w, b
+```
+
+Geometrically, a perceptron draws a straight line (or, in more dimensions, a flat hyperplane) through the input space and labels everything on one side as 1 and everything on the other as 0. Rosenblatt proved that if such a line exists, the learning rule will find it in a finite number of steps.
+
+That "if" turned out to matter a great deal.
+
+## The first winter
+
+In 1969 Marvin Minsky and Seymour Papert published *Perceptrons*, a careful mathematical analysis of what single-layer perceptrons could and could not compute. The best-known example is XOR: output 1 when exactly one of two inputs is 1.
+
+```text
+x2
+ 1 │  1        0
+   │
+ 0 │  0        1
+   └──────────────  x1
+      0        1
+```
+
+No single straight line separates the 1s from the 0s. A perceptron cannot learn XOR, no matter how long it trains. Minsky and Papert knew that networks with several layers could represent such functions, but nobody had a reliable way to *train* those hidden layers. Funding and interest in neural networks fell sharply through the 1970s, and symbolic AI, which manipulated explicit rules and logic, became the dominant approach.
+
+<Callout type="insight">
+The limitation was never "neurons are too simple". It was that one layer of them can only draw one straight boundary. Everything that follows is about stacking layers and finding a way to train the stack.
+</Callout>
+
+## Backpropagation: training the hidden layers
+
+The missing piece was a way to assign blame. If a network with several layers gets an answer wrong, how much should each weight deep inside it change?
+
+The answer is the chain rule from calculus, applied systematically. Replace the hard threshold with a smooth function such as the sigmoid, $\sigma(z) = 1 / (1 + e^{-z})$, and the whole network becomes differentiable. You can then compute how the error changes with respect to every weight by working backwards from the output, layer by layer. That procedure is **backpropagation**.
+
+The mathematics had appeared earlier, in Seppo Linnainmaa's 1970 work on automatic differentiation and Paul Werbos's 1974 thesis. It became widely known in 1986, when David Rumelhart, Geoffrey Hinton and Ronald Williams showed in *Nature* that multi-layer networks trained this way learned useful internal representations on their own. Hidden units discovered features that nobody had programmed.
+
+For a network with loss $L$, each weight is updated by gradient descent:
+
+$$
+w \leftarrow w - \eta \, \frac{\partial L}{\partial w}
+$$
+
+Backpropagation is simply an efficient way to compute every $\partial L / \partial w$ in one backward pass, at roughly the cost of one forward pass.
+
+With hidden layers, XOR becomes easy: one hidden unit learns "x1 OR x2", another learns "x1 AND x2", and the output combines them. In 1989 George Cybenko proved that a network with a single hidden layer of enough sigmoid units can approximate any continuous function on a bounded domain to arbitrary precision. In principle, neural networks could represent almost anything.
+
+In practice, the 1990s were a second quiet period. Yann LeCun's convolutional networks read handwritten digits on bank cheques, and Sepp Hochreiter and Jürgen Schmidhuber introduced the LSTM in 1997 to handle sequences. But deep networks were slow to train, gradients faded to nothing as they travelled back through many layers, and methods such as support vector machines often won on the benchmarks of the time.
+
+## 2012: data, GPUs and depth
+
+Three things changed in the 2000s.
+
+1. **Data.** ImageNet, released in 2009, contained over a million labelled images across a thousand categories. Neural networks finally had enough examples to learn from.
+2. **Compute.** Graphics cards built for video games were very good at the kind of arithmetic neural networks need: huge numbers of multiplications and additions done in parallel. NVIDIA's CUDA, released in 2007, made them programmable for general work.
+3. **Tricks.** Simple changes such as the ReLU activation, $\max(0, z)$, which does not saturate the way a sigmoid does, along with better initialisation and dropout, made deeper networks trainable.
+
+In 2012, Alex Krizhevsky, Ilya Sutskever and Geoffrey Hinton entered **AlexNet** in the ImageNet competition. It was a convolutional network with about 60 million parameters, trained for several days on two consumer NVIDIA GTX 580 GPUs. Its top-5 error was 15.3%; the runner-up, which used hand-engineered features, was at 26.2%. Within two years almost every serious computer vision system was a deep neural network.
+
+The lesson people took from AlexNet was not about vision specifically. It was that **the same simple building blocks get dramatically better when you scale data and compute together**.
+
+## Language: from sequences to attention
+
+Language is harder than images in one specific way: order matters, and relationships can span long distances. "The keys that I left on the table *are* gone" needs to connect "are" to "keys", several words back.
+
+Recurrent neural networks (RNNs) handle this by reading one token at a time and carrying a hidden state forward. LSTMs added gates that decide what to remember and what to forget, which helped with longer sequences. By 2014, encoder–decoder RNNs could translate sentences reasonably well, and Dzmitry Bahdanau, Kyunghyun Cho and Yoshua Bengio added **attention**: when producing each output word, the decoder could look back at every input word and decide which ones mattered most.
+
+Recurrence still had two problems. Information had to squeeze through a single hidden state as it passed along the sequence, and processing was inherently sequential: step 100 could not start until step 99 had finished, which wasted the parallelism of GPUs.
+
+### The Transformer
+
+In 2017, a team at Google published *Attention Is All You Need*. Their **Transformer** dropped recurrence entirely. Every token looks at every other token directly through *self-attention*, and all positions are processed in parallel.
+
+Each token is projected into three vectors: a **query** (what am I looking for?), a **key** (what do I contain?) and a **value** (what will I pass on if selected?). Attention scores are dot products between queries and keys, scaled and normalised with a softmax, then used to take a weighted average of the values:
+
+$$
+\operatorname{Attention}(Q, K, V) = \operatorname{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right) V
+$$
+
+The division by $\sqrt{d_k}$ keeps the dot products from growing with the vector size, which would otherwise push the softmax into regions with vanishing gradients. Several attention "heads" run in parallel, each free to learn a different kind of relationship: syntax, coreference, position, topic.
+
+A Transformer layer alternates self-attention (tokens exchanging information) with a small feed-forward network applied to each token independently (tokens processing what they received). Stack dozens of these layers and you have the architecture behind essentially every modern large language model.
+
+## Large language models
+
+A large language model (LLM) is a Transformer trained on one deceptively simple objective: **predict the next token**. Given "The capital of France is", assign high probability to " Paris".
+
+To get good at that across trillions of tokens of text and code, the model has to absorb grammar, facts, styles of argument and patterns of reasoning, because all of them help predict what comes next. Nobody programs those abilities in; they are compressed into the weights because they reduce prediction error.
+
+Generation is a loop around that single prediction:
+
+```python title="generate.py (simplified)"
+def generate(model, tokenizer, prompt, max_new_tokens=200, temperature=0.8):
+    tokens = tokenizer.encode(prompt)
+    for _ in range(max_new_tokens):
+        logits = model(tokens)[-1]          # scores for every vocabulary entry
+        probs = softmax(logits / temperature)
+        next_token = sample(probs)          # pick one, weighted by probability
+        if next_token == tokenizer.eos:
+            break
+        tokens.append(next_token)
+    return tokenizer.decode(tokens)
+```
+
+The text is first split into **tokens**, sub-word pieces such as "trans", "form" and "er", using a fixed vocabulary of tens of thousands of entries. Each token becomes a vector (its **embedding**), flows through the stack of Transformer layers, and the final layer produces a score for every possible next token. Temperature controls how adventurous the sampling is: low values pick the most likely token almost every time, higher values spread probability more evenly.
+
+### Scale, then alignment
+
+| Year | Model | Parameters | What it showed |
+|---|---|---|---|
+| 2018 | GPT | 117M | Pre-train on raw text, then fine-tune for tasks |
+| 2018 | BERT | 340M | Bidirectional pre-training transforms language understanding benchmarks |
+| 2019 | GPT-2 | 1.5B | Coherent multi-paragraph text from a prompt alone |
+| 2020 | GPT-3 | 175B | New tasks from a few examples in the prompt (in-context learning) |
+| 2022 | Chinchilla | 70B | For a fixed budget, train smaller models on far more data |
+| 2022 | ChatGPT | — | Instruction tuning and human feedback make a usable assistant |
+
+Two research results shaped this era. In 2020, OpenAI researchers reported **scaling laws**: loss falls predictably, as a power law, as you increase parameters, data and compute. In 2022, DeepMind's Chinchilla paper corrected the recipe, showing that many large models had been trained on too little data, and that roughly twenty training tokens per parameter was closer to compute-optimal.
+
+A raw pre-trained model is a superb autocomplete but a poor assistant: ask it a question and it may continue with three more questions. **Instruction tuning** (fine-tuning on examples of good responses) and **reinforcement learning from human feedback** (training a reward model on human preferences and optimising against it) turned that capability into ChatGPT in November 2022.
+
+## Limitations and misconceptions
+
+**"It looks things up."** An LLM does not query a database of facts. Knowledge is stored diffusely across billions of weights, which is why models can state false things fluently. They produce the most plausible continuation, and a plausible falsehood is still plausible. Systems that need reliable facts add retrieval: fetch relevant documents and put them in the prompt.
+
+**"It's just autocomplete."** Accurate about the training objective, misleading about the result. Predicting the next token of a proof, a program or a legal argument well requires modelling the structure that generated it. The objective is simple; what it takes to achieve it is not.
+
+**"Neural networks work like brains."** The perceptron was inspired by neurons, and the vocabulary stuck. Modern networks are differentiable functions optimised with calculus. Biological neurons spike, adapt continuously and do not use backpropagation in any straightforward way.
+
+**Context is finite.** A model only "sees" what fits in its context window. Anything outside it, including earlier parts of a long conversation, is gone unless the application puts it back.
+
+**Training and inference are different worlds.** Training a frontier model takes months on thousands of accelerators. Using it means running the forward pass once per generated token. Both are dominated by matrix multiplication, which is why the hardware story matters as much as the algorithmic one.
+
+## What comes next
+
+The building blocks have changed surprisingly little since 2017. Most of the progress since then comes from scale, better data, and changes in how models are trained and used:
+
+- **Reasoning at inference time.** Models trained to work through problems step by step before answering, spending more computation on harder questions.
+- **Multimodality.** The same Transformer machinery applied to images, audio and video tokens alongside text.
+- **Efficiency.** Mixture-of-experts layers that activate only part of the network per token, quantisation to smaller number formats, and distillation into smaller models.
+- **Tools and agents.** Models that call search engines, run code and operate software, with the reliability problems that come with acting in the world.
+
+Underneath all of it is the same operation Rosenblatt's machine performed with potentiometers: multiply, add, compare. The difference is that we now do it trillions of times per second, which brings us to the hardware that made it possible.
+
+## Next chapter
+
+Every milestone in this chapter, from AlexNet to GPT-3, depended on doing enormous amounts of parallel arithmetic cheaply. The next chapter looks at the chip that made that possible: [how GPUs work](/how-it-works/how-gpus-work), from 1990s graphics cards to the tensor cores inside today's AI accelerators.
