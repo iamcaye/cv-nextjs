@@ -1,0 +1,252 @@
+---
+title: "When Networks Left The Spotlight"
+slug: "ai-winters-statistical-learning"
+chapter: 5
+description: "The AI winters, the rise of expert systems and the ideas from statistical learning that are still useful today."
+publishedAt: "2026-10-14"
+category: "Artificial Intelligence"
+tags:
+  - AI History
+  - Machine Learning
+  - Expert Systems
+  - SVM
+status: "published"
+nextChapterSuggestion: "Machines with memory: RNNs, LSTMs and the problem of sequences"
+---
+
+The history of artificial intelligence is often told as a relay race: first came rules, then neural networks and finally deep learning. It is a convenient story, but a misleading one. The different schools coexisted, competed and influenced each other. Some techniques vanished from the headlines while remaining in use; others came back when data, hardware or industry needs changed.
+
+More than fifty years passed between the first experiments with perceptrons and the success of AlexNet. For much of that time, neural networks were not at the centre of AI. To understand why, we need to look at both their technical limitations and the expectations built up around them.
+
+We also need to know who filled that space: expert systems, decision trees, probabilistic models and support vector machines. Many ideas that now seem native to modern AI (training on examples, separating learning from evaluation, controlling overfitting or quantifying uncertainty) were consolidated during those years.
+
+## There wasn't just one winter
+
+The phrase *AI winter* describes periods when funding, commercial investment and public enthusiasm declined. However, it does not refer to a single worldwide crisis that began on a specific day. There were different contractions in the United States, the United Kingdom, Europe and Japan, driven by different research programmes and markets.
+
+The first wave of optimism had produced very ambitious claims. Machines were expected to translate languages, solve general problems and hold reasonable conversations within a few years. Programs worked well in carefully scoped demonstrations, but struggled when the vocabulary grew or unforeseen situations arose.
+
+One turning point was the ALPAC committee report, published in the United States in 1966. It assessed progress in machine translation and concluded that existing systems offered no immediate path to general, cheap, high-quality translation. The report did not declare machine translation impossible, but it recommended prioritising linguistic research and assistive tools over the promise of fully replacing human translators. Its consequences hit US funding for the field especially hard. [ALPAC, 1966](https://www.nationalacademies.org/publications/20813).
+
+In the United Kingdom, James Lighthill delivered a highly critical review of artificial intelligence research in 1973. One of his objections was combinatorial explosion: techniques that looked convincing with ten objects or moves became impractical with thousands of possibilities. The report contributed to the reduction of British support for much of academic AI research. [The Lighthill report and debate](https://www.aiai.ed.ac.uk/events/lighthill1973/).
+
+These episodes do not show that "AI failed". Machine translation, vision and planning continued to be researched. What failed was a particular relationship between promises, resources and results.
+
+## The invisible enemy: scale
+
+Imagine a program that has to choose a chess move. If it has 30 possible moves and considers 30 replies to each, two turns require exploring about 900 combinations. After six turns, the theoretical number is already around:
+
+$$
+30^6 = 729{,}000{,}000
+$$
+
+We can prune branches, use heuristics and avoid repeated positions, but the example reveals the problem. Adding just a few steps can multiply the work enormously.
+
+Something similar happened with early neural networks. The perceptron could learn a linear boundary, but it could not build hierarchical representations on its own. Multilayer networks were more expressive, but training them was expensive and unstable. What was missing were large labelled datasets, fast processors, good initialisation techniques and decades of practical experience.
+
+On top of that, criticism of perceptrons and their limitations, such as the XOR problem, damaged the reputation of neural networks. It would be an exaggeration to claim that a single book or mathematical result halted all research: interest also depended on funding, hardware and the success of alternative methods.
+
+Neural networks did not disappear either. Backpropagation gained visibility in the 1980s, LeNet demonstrated real applications and various groups kept connectionist research alive. For many years, they simply did not offer the best available combination of accuracy, cost and ease of deployment.
+
+## The age of expert systems
+
+While neural networks tried to learn from examples, another school proposed putting human knowledge directly into the program.
+
+An expert system usually has two parts:
+
+- A **knowledge base**, made up of facts and rules.
+- An **inference engine**, which decides which rules to apply.
+
+A simplified medical rule might be:
+
+```text
+IF
+    the culture contains a gram-positive organism
+    AND its shape is coccus
+    AND it grows in chains
+THEN
+    there is evidence that the organism is a streptococcus
+```
+
+The engine can reason forwards, starting from the available data, or backwards, starting from a hypothesis and looking for the evidence that would confirm it.
+
+MYCIN, developed at Stanford in the 1970s, is one of the best-known examples. Its goal was to help identify bacterial infections and recommend antimicrobial treatments. It combined rules, questions to the user and a way of combining degrees of confidence. The project was also a laboratory for studying how to acquire, represent and explain expert knowledge. [Buchanan and Shortliffe, 1984](https://people.dbmi.columbia.edu/~ehs7001/Buchanan-Shortliffe-1984/MYCIN%20Book.htm).
+
+Expert systems were appealing because they could justify their conclusions: you could show which rules had fired. And they did not need millions of examples. In a narrow, relatively stable domain, carefully designed rules could deliver a lot of value.
+
+But transferring a person's knowledge into a rule base proved difficult. Experts cannot always put into words how they make a decision. They often recognise configurations learned over years of experience, but cannot turn them into a complete list of conditions.
+
+This gave rise to the **knowledge acquisition bottleneck**. Every new exception required interviewing specialists, modifying rules and checking that the change did not break earlier decisions.
+
+Maintenance could also become combinatorial:
+
+```text
+General rule
+ ├─ exception A
+ │   ├─ exception to A
+ │   └─ edge case
+ ├─ exception B
+ └─ conflict with another rule
+```
+
+When the domain changed (new products, diseases, laws or processes), the knowledge base could become obsolete. Many systems worked as impressive prototypes, but turning them into reliable products, integrating them with real organisations and maintaining them for years was much harder.
+
+The expert systems industry grew during the 1980s and then contracted. Add to that the collapse of the Lisp machine market and disappointment with other corporate and government programmes. Together these events are usually called the second AI winter, although it was not a uniform crisis either.
+
+## From programming knowledge to estimating it
+
+While rules ran into maintenance problems, a different question was gaining ground:
+
+> Instead of asking a person to describe every rule, can we estimate a function from observed data?
+
+This is where statistical learning came into its own. The programmer no longer writes the solution for each case directly. They choose a family of models, an objective function and a training procedure.
+
+The general flow is:
+
+$$
+\text{data} \rightarrow \text{model} \rightarrow \text{prediction} \rightarrow \text{error}
+$$
+
+The error lets us adjust the model. But a fundamental concern also appears: a system can memorise its training examples without performing well on new cases. This gap between training and generalisation became the central issue of machine learning.
+
+### Decision trees: learning questions
+
+A decision tree splits the data through a sequence of questions:
+
+```text
+Is the amount over €500?
+    yes → Is the account less than 30 days old?
+              yes → possible fraud
+              no  → normal transaction
+    no  → normal transaction
+```
+
+The algorithm looks for a question that produces "purer" groups. If we use entropy to measure how mixed the classes are:
+
+$$
+H(S)=-\sum_k p_k\log_2 p_k
+$$
+
+where $p_k$ is the proportion of examples in class $k$. A set split evenly between two classes has high entropy; one containing a single class has zero entropy.
+
+ID3, described by Ross Quinlan in 1986, selected attributes using information gain and built the tree recursively. [Quinlan, 1986](https://doi.org/10.1007/BF00116251).
+
+Trees were easy to inspect and worked well with tabular data. However, the procedure was greedy: at each node it made a local decision without guaranteeing the best overall tree. Small changes in the data could produce different structures. Over time, ensemble methods such as *random forests* and *gradient boosting* would reduce some of that instability.
+
+### Probabilistic models: reasoning under uncertainty
+
+In many problems, picking a class is not enough. We need to express uncertainty:
+
+$$
+P(\text{spam}\mid \text{message})=0.93
+$$
+
+Probabilistic models make it possible to combine incomplete observations with assumptions about how the data is generated.
+
+Hidden Markov models, for instance, were decisive in speech recognition. They assume there is a sequence of hidden states $z_t$ (such as the sounds a speaker is trying to produce) that generates observations $x_t$, such as fragments of audio:
+
+$$
+P(z_t\mid z_{t-1}), \qquad P(x_t\mid z_t)
+$$
+
+The Markov assumption simplifies the problem: the current state depends directly on the previous one, not on the entire history. It is not a perfect description of language or speech, but an approximation that allows probabilities to be computed efficiently with dynamic programming.
+
+This distinction matters: a model does not have to literally reproduce the mechanism of the world. It can be useful if its assumptions produce reliable predictions within a given domain.
+
+### Support vector machines: looking for the margin
+
+A support vector machine, or SVM, returns to the idea of separating classes with a boundary:
+
+$$
+f(x)=w^\top x+b
+$$
+
+But it does not look for just any correct boundary. It looks for the one that leaves the widest possible margin between the two classes. For perfectly separable data, the problem can be written as:
+
+$$
+\min_{w,b}\frac{1}{2}\lVert w\rVert^2
+$$
+
+subject to:
+
+$$
+y_i(w^\top x_i+b)\geq 1
+$$
+
+Minimising $\lVert w\rVert$ is equivalent to widening the margin. Only the examples close to the boundary (the **support vectors**) directly determine the solution.
+
+Since real data contains noise, slack variables $\xi_i$ are introduced:
+
+$$
+\min_{w,b,\xi}\frac{1}{2}\lVert w\rVert^2+C\sum_i \xi_i
+$$
+
+The parameter $C$ controls the trade-off between a wide margin and penalising training errors.
+
+Using a *kernel* function, an SVM can build non-linear boundaries without explicitly computing all the new features:
+
+$$
+K(x_i,x_j)=\phi(x_i)^\top\phi(x_j)
+$$
+
+Cortes and Vapnik presented the formulation of support-vector networks in 1995 and evaluated it on, among other things, character recognition. [Cortes and Vapnik, 1995](https://link.springer.com/article/10.1007/BF00994018).
+
+## A new experimental culture
+
+The most lasting change was not any particular algorithm, but a way of working.
+
+| Approach | Main source of behaviour | Typical problem |
+|---|---|---|
+| Expert system | Rules written by specialists | Maintaining exceptions and changes |
+| Decision tree | Splits learned from data | Instability and overfitting |
+| Probabilistic model | Assumed distribution and dependencies | Overly restrictive assumptions |
+| SVM | Maximum-margin boundary | Scaling and choice of *kernel* |
+| Neural network | Learned representations and weights | Data, compute and optimisation |
+
+The field began to rely more on separate training and test sets, cross-validation, comparable metrics and competitions on shared data. This helped distinguish an attractive demo from a reproducible improvement.
+
+The question changed too. Instead of asking only "does it behave intelligently?", one could ask:
+
+- What error does it make on unseen data?
+- How does it change as the number of examples grows?
+- Which variables explain its decisions?
+- How much does it cost to train and run?
+- What happens when the data distribution shifts?
+
+These questions are still central for today's LLMs.
+
+## Why neural networks came back
+
+Deep learning did not win because rules and statistics were dead ends. It came back strongly because several conditions coincided: large volumes of digitised data, GPUs able to perform many matrix operations in parallel, better training practices and tasks where learning representations was especially valuable.
+
+In an image, hand-designing all the features that distinguish a cat from a dog is hard. A deep network can successively learn edges, textures and configurations. By contrast, to predict loan defaults from a small, well-structured table, a linear model or a tree ensemble may still be cheaper, more interpretable and just as competitive.
+
+The lesson of the winters is not that an old technique must be replaced by a new one. It is that a technology lives inside a system: it needs data, hardware, metrics, funding, maintenance and reasonable expectations.
+
+AI advances as much through new ideas as through learning where the old ones fail.
+
+### References
+
+- ALPAC committee, [*Language and Machines: Computers in Translation and Linguistics*](https://www.nationalacademies.org/publications/20813) (1966).
+- James Lighthill, [*Artificial Intelligence: A General Survey*](https://www.aiai.ed.ac.uk/events/lighthill1973/) (1973).
+- Bruce G. Buchanan and Edward H. Shortliffe, [*Rule-Based Expert Systems: The MYCIN Experiments*](https://people.dbmi.columbia.edu/~ehs7001/Buchanan-Shortliffe-1984/MYCIN%20Book.htm) (1984).
+- J. R. Quinlan, [*Induction of Decision Trees*](https://doi.org/10.1007/BF00116251) (1986).
+- Corinna Cortes and Vladimir Vapnik, [*Support-Vector Networks*](https://link.springer.com/article/10.1007/BF00994018) (1995).
+
+## Next chapter
+
+### Proposal for the next chapter
+
+**Chapter 6 · Machines with memory: RNNs, LSTMs and the problem of sequences**
+
+An image can be analysed as a spatial structure, but a sentence, a melody or a time series depends on order. The next chapter will look at how recurrent networks tried to incorporate memory by reusing a hidden state over time. We will see how an RNN is unrolled during training, how backpropagation travels through the sequence and why gradients can vanish or explode. Then we will open up the gates of an LSTM to understand, equation by equation, how it decides what to remember, what to forget and what to output. Finally we will examine why these architectures dominated sequence processing for years, what their parallelisation limits are and how those difficulties paved the way for attention, without casting transformers as their universal replacement.
+
+Questions it will answer:
+
+1. How does an RNN represent everything that came before using a state vector?
+2. Why is it so hard to learn long-range dependencies with backpropagation?
+3. What exactly do the gates of an LSTM do, and which problems do they not solve?
+
+The connection with this chapter is direct: we will move from statistical sequence models, which imposed carefully designed dependencies, to networks that can learn part of those representations from data.
+
+Does this topic interest you for the next instalment, or would you prefer to change direction? If you don't suggest another, we will continue with RNNs and LSTMs.

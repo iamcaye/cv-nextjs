@@ -1,0 +1,680 @@
+---
+title: "Learning In Layers: Gradient Descent And Backpropagation"
+slug: "learning-in-layers-backpropagation"
+chapter: 3
+description: "How multilayer networks learn representations through gradient descent and backpropagation, with a complete worked numerical example."
+publishedAt: "2026-10-14"
+category: "Artificial Intelligence"
+tags:
+  - Neural Networks
+  - Backpropagation
+  - Gradient Descent
+status: "published"
+nextChapterSuggestion: "How a machine learns to see: from Neocognitron and LeNet to AlexNet"
+---
+
+The perceptron from the first chapter could learn a linear boundary. If the data could be separated by a straight line (or by a hyperplane in higher dimensions), it adjusted its weights until it found one.
+
+But XOR exposed its limit: some relationships cannot be represented by a single boundary.
+
+The intuitive fix is to connect several perceptrons. Some units pick out simple patterns and others combine their outputs to build more complex ones. The problem is that it is no longer obvious how to train the inner connections.
+
+If the final answer is wrong, we know something has to change. But which weight is responsible? By how much should it change? And in which direction?
+
+This is the **credit assignment problem**. Backpropagation is the mechanism that answers it.
+
+## A network as a chain of transformations
+
+A multilayer neural network takes an input and transforms it step by step:
+
+
+
+$$
+x \rightarrow h_1 \rightarrow h_2 \rightarrow \hat y
+$$
+
+
+
+The intermediate layers are called **hidden layers** because they correspond directly neither to the input data nor to the final answer.
+
+A simple layer performs two operations. First it computes a linear combination:
+
+
+
+$$
+z=Wx+b
+$$
+
+
+
+Then it applies an activation function:
+
+
+
+$$
+h=f(z)
+$$
+
+
+
+Here:
+
+- $x$ holds the inputs.
+- $W$ holds the weights.
+- $b$ holds the biases.
+- $f$ is an activation function.
+- $h$ is the representation produced by the layer.
+
+A two-layer network could be written as:
+
+
+
+$$
+h=f(W_1x+b_1)
+$$
+
+
+
+$$
+\hat y=g(W_2h+b_2)
+$$
+
+
+
+The first layer does not have to produce a recognisable classification. It can learn intermediate features that make the second layer's job easier.
+
+To solve XOR, for example, some units can carve out different regions of the space and the final unit can combine them. The resulting boundary no longer has to be a single straight line.
+
+## Why we need non-linear functions
+
+It might seem enough to chain lots of matrices together. Suppose we have two layers without activation functions:
+
+
+
+$$
+h=W_1x+b_1
+$$
+
+
+
+$$
+\hat y=W_2h+b_2
+$$
+
+
+
+Substitute $h$ into the second expression:
+
+
+
+$$
+\hat y=W_2(W_1x+b_1)+b_2
+$$
+
+
+
+Rearranging:
+
+
+
+$$
+\hat y=(W_2W_1)x+(W_2b_1+b_2)
+$$
+
+
+
+We can call the product $W_2W_1$ $W'$ and the rest $b'$:
+
+
+
+$$
+\hat y=W'x+b'
+$$
+
+
+
+That is just another linear transformation. We could stack a hundred layers and, without non-linear activations between them, the whole network would still be equivalent to a single linear layer.
+
+**Non-linearity** prevents that collapse.
+
+A widely used activation is ReLU:
+
+
+
+$$
+\operatorname{ReLU}(z)=\max(0,z)
+$$
+
+
+
+If the value is negative, it returns zero; if it is positive, it keeps it. Simple as the rule is, it lets different units switch on in different regions. The full network can then build a function made of many linear pieces.
+
+The layers now have the capacity to represent the problem. We still need to find their weights.
+
+## Turning the error into a number
+
+To train the network we have to measure the difference between the prediction $\hat y$ and the expected result $y$. That measure is called the **loss function**.
+
+For a simple regression we can use squared error:
+
+
+
+$$
+L=\frac{1}{2}(\hat y-y)^2
+$$
+
+
+
+The factor $\frac{1}{2}$ makes differentiation tidier and does not move the minimum.
+
+If the target is $y=1$ and the network predicts $\hat y=0.4$:
+
+
+
+$$
+L=\frac{1}{2}(0.4-1)^2=0.18
+$$
+
+
+
+Training now becomes an optimisation problem:
+
+> Find the parameter values that reduce the loss.
+
+A modern network can have millions or billions of parameters. We cannot try every combination. We need to estimate what will happen to the loss if we nudge each one slightly.
+
+Derivatives give us that information.
+
+## A derivative measures sensitivity
+
+A derivative answers a local question:
+
+> If I change this value slightly, how does the result change?
+
+If we have:
+
+
+
+$$
+f(w)=w^2
+$$
+
+
+
+its derivative is:
+
+
+
+$$
+\frac{df}{dw}=2w
+$$
+
+
+
+At $w=3$ the derivative is 6. Near that point, increasing $w$ a little makes $f$ grow. To reduce it we must move the other way.
+
+When we have many parameters we gather all the partial derivatives into a vector called the **gradient**:
+
+
+
+$$
+\nabla L= \left[ \frac{\partial L}{\partial w_1}, \frac{\partial L}{\partial w_2}, \dots \right]
+$$
+
+
+
+Each component describes how sensitive the loss is to one parameter, holding the others fixed for the moment.
+
+The gradient points in the direction of steepest local increase. That is why we update the parameters in the opposite direction:
+
+
+
+$$
+\theta\leftarrow\theta-\eta\nabla_\theta L
+$$
+
+
+
+Here $\theta$ stands for all the parameters and $\eta$ is the learning rate.
+
+This procedure is called **gradient descent**.
+
+If the rate is too small, progress can be slow. If it is too large, we can overshoot good regions, oscillate or destabilise training.
+
+Nor does the gradient promise to find the best global result. It only describes the slope around the current point.
+
+## The chain rule
+
+A network does not compute the loss directly from a weight. Many operations sit between them.
+
+Consider:
+
+
+
+$$
+w \rightarrow z \rightarrow h \rightarrow \hat y \rightarrow L
+$$
+
+
+
+We want to know:
+
+
+
+$$
+\frac{\partial L}{\partial w}
+$$
+
+
+
+The chain rule lets us break this relationship apart:
+
+
+
+$$
+\frac{\partial L}{\partial w} = \frac{\partial L}{\partial \hat y} \frac{\partial \hat y}{\partial h} \frac{\partial h}{\partial z} \frac{\partial z}{\partial w}
+$$
+
+
+
+Each factor describes a local relationship. An operation only needs to know how its output changes when its inputs change.
+
+Backpropagation walks through those operations in reverse order and combines their derivatives using the chain rule. It is a local process that efficiently computes how every parameter contributes to the loss. [cs231n.github.io](https://cs231n.github.io/optimization-2/)
+
+## Following a complete network
+
+Let's build a minimal network with one input, one hidden unit and one output:
+
+
+
+$$
+z_1=w_1x+b_1
+$$
+
+
+
+$$
+h=\operatorname{ReLU}(z_1)
+$$
+
+
+
+$$
+\hat y=w_2h+b_2
+$$
+
+
+
+$$
+L=\frac{1}{2}(\hat y-y)^2
+$$
+
+
+
+We will use:
+
+
+
+$$
+x=2,\qquad y=1
+$$
+
+
+
+$$
+w_1=0.5,\quad b_1=0,\quad w_2=0.4,\quad b_2=0
+$$
+
+
+
+### Forward pass
+
+First combination:
+
+
+
+$$
+z_1=0.5\cdot2=1
+$$
+
+
+
+Activation:
+
+
+
+$$
+h=\operatorname{ReLU}(1)=1
+$$
+
+
+
+Output:
+
+
+
+$$
+\hat y=0.4\cdot1=0.4
+$$
+
+
+
+Loss:
+
+
+
+$$
+L=\frac{1}{2}(0.4-1)^2=0.18
+$$
+
+
+
+This journey from input to loss is the **forward pass**.
+
+Along the way we store certain intermediate results. We will need them on the way back.
+
+### Backward pass
+
+We start from the loss:
+
+
+
+$$
+\frac{\partial L}{\partial \hat y} =\hat y-y =0.4-1 =-0.6
+$$
+
+
+
+The negative sign says that, locally, increasing the prediction would reduce the loss.
+
+The output was:
+
+
+
+$$
+\hat y=w_2h+b_2
+$$
+
+
+
+Therefore:
+
+
+
+$$
+\frac{\partial \hat y}{\partial w_2}=h=1
+$$
+
+
+
+We apply the chain rule:
+
+
+
+$$
+\frac{\partial L}{\partial w_2} = \frac{\partial L}{\partial \hat y} \frac{\partial \hat y}{\partial w_2} = -0.6\cdot1 =-0.6
+$$
+
+
+
+For the bias:
+
+
+
+$$
+\frac{\partial L}{\partial b_2}=-0.6
+$$
+
+
+
+Now we need to work out how much the hidden unit contributed:
+
+
+
+$$
+\frac{\partial \hat y}{\partial h}=w_2=0.4
+$$
+
+
+
+$$
+\frac{\partial L}{\partial h} = -0.6\cdot0.4 =-0.24
+$$
+
+
+
+The derivative of ReLU is one when its input is positive:
+
+
+
+$$
+\frac{\partial h}{\partial z_1}=1
+$$
+
+
+
+So:
+
+
+
+$$
+\frac{\partial L}{\partial z_1} =-0.24
+$$
+
+
+
+Since:
+
+
+
+$$
+z_1=w_1x+b_1
+$$
+
+
+
+we have:
+
+
+
+$$
+\frac{\partial z_1}{\partial w_1}=x=2
+$$
+
+
+
+Finally:
+
+
+
+$$
+\frac{\partial L}{\partial w_1} = -0.24\cdot2 =-0.48
+$$
+
+
+
+And for the bias:
+
+
+
+$$
+\frac{\partial L}{\partial b_1}=-0.24
+$$
+
+
+
+We now know the local influence of every parameter.
+
+## Updating the weights is a separate process
+
+Let's use a learning rate of $0.1$:
+
+
+
+$$
+w_2\leftarrow0.4-0.1(-0.6)=0.46
+$$
+
+
+
+$$
+b_2\leftarrow0-0.1(-0.6)=0.06
+$$
+
+
+
+$$
+w_1\leftarrow0.5-0.1(-0.48)=0.548
+$$
+
+
+
+$$
+b_1\leftarrow0-0.1(-0.24)=0.024
+$$
+
+
+
+With these values we run another forward pass:
+
+
+
+$$
+z_1=0.548\cdot2+0.024=1.12
+$$
+
+
+
+$$
+\hat y=0.46\cdot1.12+0.06=0.5752
+$$
+
+
+
+The new loss is approximately:
+
+
+
+$$
+L=\frac{1}{2}(0.5752-1)^2\approx0.0902
+$$
+
+
+
+It has dropped from $0.18$ to roughly $0.09$.
+
+This lets us separate two ideas that are often blurred together:
+
+- **Backpropagation computes the gradients.**
+- **The optimiser decides how to use those gradients to update the parameters.**
+
+Gradient descent is the simplest optimiser. Others, such as SGD with momentum, RMSProp or Adam, keep extra information to decide the size and direction of each update.
+
+## Training on many examples
+
+Computing the gradient over the whole dataset before every update can be very expensive. Updating after a single example gives fast but noisy estimates.
+
+The usual compromise is a **mini-batch**: a small group of examples.
+
+The training loop looks like this:
+
+1. Pick a batch of examples.
+2. Run the forward pass.
+3. Compute the average loss.
+4. Run backpropagation.
+5. Update the parameters.
+6. Repeat with another batch.
+
+When the model has gone through all the available examples once, it has completed an **epoch**.
+
+Mini-batches turn much of the computation into matrix operations. That is the direct link with the previous chapter: a GPU can process many examples and many units of a layer in parallel.
+
+## What a modern framework actually does
+
+When you write something like this in PyTorch:
+
+```python
+prediction = model(x)
+loss = loss_fn(prediction, target)
+
+optimizer.zero_grad()
+loss.backward()
+optimizer.step()
+```
+
+three different things are happening:
+
+- `model(x)` builds and runs the forward computation.
+- `loss.backward()` walks the graph in reverse and computes gradients.
+- `optimizer.step()` modifies the parameters.
+
+These libraries use **automatic differentiation**. Each operation knows its local derivative and records the relationships needed for the backward pass. If a variable takes part in several branches, the contributions to its gradient have to be summed. [cs231n.github.io](https://cs231n.github.io/optimization-2/)
+
+Backpropagation can be understood as a specialised application of reverse-mode automatic differentiation.
+
+Its history, however, does not belong to a single discovery. Seppo Linnainmaa published a reverse-mode automatic differentiation method for compositions of functions in 1970. Paul Werbos described its application to neural networks in his 1974 thesis. The 1986 paper by David Rumelhart, Geoffrey Hinton and Ronald Williams played a decisive role by demonstrating and popularising the learning of internal representations with this procedure. [people.idsia.ch](https://people.idsia.ch/~juergen/who-invented-backpropagation-1970.html)
+
+So it is more accurate to speak of an evolution with several developments and rediscoveries than to pin the whole method to a single date.
+
+## Hidden layers learn representations
+
+The deep contribution of backpropagation is not just that it lets us tune more weights. It lets hidden layers develop useful representations without us having to say explicitly what each unit should detect.
+
+In vision, one layer may respond to edges and another to combinations of shapes. In language, a representation may capture relationships between words or positions. These descriptions are rough interpretations: an individual unit does not always map to a clean human concept.
+
+The Rumelhart, Hinton and Williams paper stressed precisely that hidden units could come to represent important features of the task domain through weight adjustments. [Nature](https://www.nature.com/articles/323533a0)
+
+The network is never handed a list saying "this unit must detect a corner". It receives examples, an architecture, a loss function and an optimisation procedure. The representations emerge as part of the effort to reduce the error.
+
+## Backpropagation doesn't solve everything either
+
+The method tells us how to compute gradients, but those gradients can misbehave.
+
+In a very deep network, the chain rule multiplies many derivatives together. If many of them are smaller than one, the gradient can become tiny as it travels backwards: this is the **vanishing gradient**. If they are larger than one, it can grow out of control: this is the **exploding gradient**.
+
+ReLU helped ease some of the saturation problems of activations like sigmoid, but it introduced others. If a ReLU unit stays in the negative region, its derivative is zero and it can stop receiving updates.
+
+Weight initialisation, normalisation, residual connections, the optimiser and the specific structure of the network all matter too.
+
+And reducing the training loss does not guarantee learning the relationship we care about. A network can memorise examples, exploit accidental correlations or reproduce biases present in the data.
+
+Backpropagation optimises the objective we give it, not the intentions we left unstated.
+
+## The bridge to more specialised networks
+
+We now have the core ingredients of deep learning:
+
+- layers that transform representations;
+- non-linear activations;
+- a loss that quantifies the error;
+- backpropagation to compute gradients;
+- an optimiser to update parameters;
+- and hardware that can repeat the process at scale.
+
+But a fully connected network treats every input position as independent. In an image, that wastes a fundamental property: nearby pixels are usually related, and the same pattern can appear in different places.
+
+The next big question is how to build that spatial structure into the design of the network.
+
+### Further reading
+
+1. Rumelhart, Hinton and Williams, [*Learning Representations by Back-propagating Errors*](https://www.nature.com/articles/323533a0), *Nature* (1986).
+2. Paul Werbos, [*Beyond Regression: New Tools for Prediction and Analysis in the Behavioral Sciences*](https://gwern.net/doc/ai/nn/1974-werbos.pdf) (PhD thesis, 1974).
+3. Baydin et al., [*Automatic Differentiation in Machine Learning: a Survey*](https://arxiv.org/abs/1502.05767).
+4. Stanford CS231n, [*Backpropagation, Intuitions*](https://cs231n.github.io/optimization-2/).
+5. Michael Nielsen, [*How the Backpropagation Algorithm Works*](https://neuralnetworksanddeeplearning.com/chap2.html).
+
+## Next chapter
+
+### Proposal for the next chapter
+
+**Chapter 4 · How a machine learns to see: from Neocognitron and LeNet to AlexNet**
+
+We now understand how to train several layers and how GPUs made it feasible to run their computations at scale. The next chapter explains why fully connected networks were a poor fit for images and how convolutional networks took advantage of spatial structure. We will follow a filter as it slides across an image, see how it detects a pattern regardless of where it appears, and explain the role of *pooling*, receptive fields and shared weights. Then we will trace the historical path from Neocognitron and LeNet to AlexNet, connecting architecture, data, backpropagation and GPUs without presenting AlexNet as an isolated starting point.
+
+The three questions it will answer:
+
+1. What does a convolution actually compute over an image?
+2. Why does sharing weights drastically reduce the number of parameters?
+3. What combination of ideas made AlexNet stand out in 2012?
+
+If that interests you, we will continue there; you can also swap it for any other topic.

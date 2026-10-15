@@ -1,0 +1,357 @@
+---
+title: "How A Machine Learns To See: From Neocognitron And LeNet To AlexNet"
+slug: "convolutional-networks-lenet-alexnet"
+chapter: 4
+description: "How convolutional networks exploit the structure of images, and how architecture, data and GPUs came together to make AlexNet possible."
+publishedAt: "2026-10-14"
+category: "Artificial Intelligence"
+tags:
+  - CNN
+  - Computer Vision
+  - Deep Learning
+  - GPU
+status: "published"
+nextChapterSuggestion: "When networks left the spotlight: AI winters and statistical learning"
+---
+
+To a computer, a photograph is a matrix of numbers. In an RGB image, each position usually holds three values representing the intensities of red, green and blue.
+
+We could flatten all those numbers and feed them into a network like the one in the previous chapter. But we would lose a fundamental property: in an image, **position and proximity matter**.
+
+A single dark pixel tells us little. Several adjacent dark pixels can form an edge. Several edges can form a corner. Corners and textures can combine into parts of objects and, eventually, into whole objects.
+
+Convolutional networks, or CNNs, build that spatial structure directly into their architecture.
+
+## The problem with connecting every pixel to everything
+
+Picture a small $32\times32$ greyscale image. It contains:
+
+$$
+32\cdot32=1024
+$$
+
+values.
+
+If we connect the image to a layer of 1,000 units, we need:
+
+$$
+1024\cdot1000+1000=1{,}025{,}000
+$$
+
+parameters, including the biases.
+
+For higher-resolution RGB images, the count grows quickly. A $224\times224$ image with three channels contains:
+
+$$
+224\cdot224\cdot3=150{,}528
+$$
+
+values. Connecting it directly to a layer of 4,096 units would take more than 616 million weights.
+
+Beyond the cost, there is a conceptual problem. A unit connected to every pixel has to learn separately that a vertical edge on the left and the same edge shifted to the right are instances of the same pattern.
+
+A convolutional network introduces two assumptions:
+
+1. Visual patterns tend to be local.
+2. A pattern can be useful in different positions in the image.
+
+These assumptions are not universal truths, but they fit many natural images reasonably well.
+
+## A filter that slides across the image
+
+A convolution uses a small matrix called a **kernel** or filter. Consider this $3\times3$ filter:
+
+$$
+K=
+\begin{bmatrix}
+-1&0&1\\
+-1&0&1\\
+-1&0&1
+\end{bmatrix}
+$$
+
+And a region of an image:
+
+$$
+X=
+\begin{bmatrix}
+0&0&1\\
+0&0&1\\
+0&0&1
+\end{bmatrix}
+$$
+
+We multiply each position by the matching entry of the filter and add everything up:
+
+$$
+(-1\cdot0)+(0\cdot0)+(1\cdot1)
+$$
+
+$$
++(-1\cdot0)+(0\cdot0)+(1\cdot1)
+$$
+
+$$
++(-1\cdot0)+(0\cdot0)+(1\cdot1)=3
+$$
+
+The positive result says the region matches the pattern we are looking for: a vertical transition from low to high values.
+
+Then we shift the filter to the next region and repeat the calculation. The results form a new matrix called a **feature map**.
+
+Technically, many deep learning libraries compute a cross-correlation, because they do not flip the kernel before applying it. Even so, by convention it is called a convolution. Since the filter values are learned, the difference usually does not change the role the operation plays.
+
+For a two-dimensional input $X$ and a kernel $K$, we can write:
+
+$$
+Y_{i,j}
+=
+\sum_m\sum_n X_{i+m,j+n}K_{m,n}+b
+$$
+
+Each output position depends only on a small region of the input. That region is its **receptive field**.
+
+## The filter isn't designed by hand
+
+The kernel above looks like a hand-designed edge detector. In a CNN, we normally start with small or random values.
+
+During the forward pass, the filters produce feature maps. The network uses those maps to compute its prediction and its loss. Then backpropagation obtains:
+
+$$
+\frac{\partial L}{\partial K_{m,n}}
+$$
+
+for every value in the filter. The optimiser updates them just as it updated the weights of the network in the previous chapter.
+
+The network learns which local patterns help reduce its error. Some filters in the early layers may end up responding to edges, colours or textures, although we should not assume every filter always maps to an easily nameable concept.
+
+## Sharing weights changes the scale of the problem
+
+The decisive idea is that we use **the same filter at every position**.
+
+If a $5\times5$ kernel processes a greyscale image, it needs only 25 weights and one bias. If we want six filters:
+
+$$
+6(5\cdot5+1)=156
+$$
+
+parameters.
+
+Compare that with producing six $28\times28$ maps through independent connections from a $32\times32$ input:
+
+$$
+1024\cdot(28\cdot28\cdot6)
+=4{,}816{,}896
+$$
+
+weights.
+
+It is not a comparison between two identical architectures, but it shows the effect of imposing locality and sharing parameters: we go from millions of independent connections to a small set of reused filters.
+
+The reduction is not free. We are forcing the network to treat a pattern similarly wherever it appears. If absolute position were essential to the task, that assumption could be a poor fit.
+
+## Channels and multiple feature maps
+
+An RGB image has three channels. So a $3\times3$ filter that processes the full image does not contain nine values but:
+
+$$
+3\cdot3\cdot3=27
+$$
+
+One for each spatial position and input channel.
+
+The filter combines the three channels and produces one feature map. If the layer has 64 filters, we get 64 different maps.
+
+In general, a layer with:
+
+- kernels of size $K\times K$,
+- $C_{\text{in}}$ input channels,
+- $C_{\text{out}}$ filters,
+
+has:
+
+$$
+C_{\text{out}}
+\left(K^2C_{\text{in}}+1\right)
+$$
+
+parameters, including one bias per filter.
+
+The depth of the representation grows even though the spatial dimensions may shrink.
+
+## Stride, padding and output size
+
+The **stride** says how many positions the filter moves at each step. With stride 1 it shifts one position. With stride 2 it jumps two at a time and produces a smaller output.
+
+**Padding** adds values around the input, usually zeros. This helps process the borders and control the size of the output.
+
+For an input dimension $N$, kernel $K$, padding $P$ and stride $S$, the output size is:
+
+$$
+\left\lfloor
+\frac{N+2P-K}{S}
+\right\rfloor+1
+$$
+
+With an input of 32, a kernel of 5, no padding and stride 1:
+
+$$
+\frac{32-5}{1}+1=28
+$$
+
+The result has $28\times28$ positions.
+
+With a kernel of 3, padding 1 and stride 1:
+
+$$
+\frac{32+2-3}{1}+1=32
+$$
+
+We keep the spatial dimensions.
+
+## Pooling: summarising small regions
+
+Early CNNs typically alternated convolutions with **pooling** operations. *Max pooling* takes, for example, a $2\times2$ region and keeps its maximum value:
+
+$$
+\begin{bmatrix}
+1&5\\
+3&2
+\end{bmatrix}
+\rightarrow5
+$$
+
+This lowers the resolution and preserves the presence of a strong activation even if its position shifts slightly.
+
+It is best not to describe this as perfect invariance. A small translation can still change the network's output considerably. Pooling adds some local tolerance and reduces the volume of data, but it also discards precise positional information.
+
+Later architectures do not always use max pooling. They may downsample with strided convolutions or use other forms of aggregation. The general idea is deciding which spatial information to keep and which to summarise.
+
+## The receptive field grows with depth
+
+A unit in the first layer looks at a small region of the image. A later unit looks at several earlier units and, indirectly, at a larger region of the input.
+
+Suppose we have two consecutive $3\times3$ convolutions with stride 1. A unit in the second layer does not see only three pixels across: each of its three inputs already depended on three positions in the image. Its effective receptive field is $5\times5$.
+
+As layers pile up, the network builds a hierarchy:
+
+$$
+\text{pixels}
+\rightarrow
+\text{local patterns}
+\rightarrow
+\text{combinations}
+\rightarrow
+\text{broader representations}
+$$
+
+This is a functional description, not a guarantee that the network reconstructs exactly the conceptual hierarchy a person would use.
+
+## From biological vision to the Neocognitron
+
+In 1962, David Hubel and Torsten Wiesel published their studies of receptive fields and the functional organisation of the cat's visual cortex. Among other things, they observed cells that responded selectively to specific orientations and arrangements within limited regions of the visual field. [Hubel and Wiesel, 1962](https://pmc.ncbi.nlm.nih.gov/articles/PMC1359523/).
+
+These findings inspired hierarchical models of vision, although a CNN should not be regarded as a faithful reproduction of the biological visual system.
+
+In 1980, Kunihiko Fukushima presented the **Neocognitron**, a self-organising multilayer network designed to recognise patterns even when they shifted position. It alternated types of units that extracted features and provided tolerance to shifts. Its architecture was inspired by Hubel and Wiesel's hierarchical model. [Fukushima, 1980](https://pubmed.ncbi.nlm.nih.gov/7370364/).
+
+The Neocognitron anticipated important ideas of CNNs, but it was not simply a modern CNN trained with backpropagation. Its learning procedure was different and partly unsupervised.
+
+History is not a single line in which each architecture cleanly replaces the one before. Ideas such as local receptive fields, hierarchies and shift tolerance appeared in different forms before being integrated into today's systems.
+
+## LeNet: learning directly from pixels
+
+In the late 1980s and through the 1990s, Yann LeCun and his collaborators developed convolutional networks trained with backpropagation to recognise handwritten digits.
+
+The best-known architecture of this period is **LeNet-5**, presented in detail in the 1998 paper by LeCun, Léon Bottou, Yoshua Bengio and Patrick Haffner.
+
+LeNet-5 processed $32\times32$ images and alternated convolutions with spatial downsampling before reaching the layers that performed classification. Its goal was not to recognise thousands of natural objects, but relatively small, structured characters.
+
+What mattered was the change of approach: instead of hand-designing the entire feature extractor and training only the final classifier, the network could learn the whole process from the pixels.
+
+The 1998 paper describes document recognition systems that combined convolutional networks with other components and were used commercially to read millions of cheques a day. [LeCun et al., 1998](https://proceedingsoftheieee.ieee.org/gradient-based-learning-applied-to-document-recognition/).
+
+So CNNs did not lie completely dormant until 2012. They worked well in specific domains. What did not yet exist was the combination needed to apply them successfully to a massive, diverse collection of photographs.
+
+## The data piece: ImageNet
+
+In 2009, Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li and Fei-Fei Li presented ImageNet.
+
+The idea was to organise images according to the conceptual hierarchy of WordNet. At the stage described in the original paper, the dataset contained 3.2 million images spread across 5,247 categories, or *synsets*, verified through distributed human labour. [Deng et al., 2009](https://www.image-net.org/static_files/papers/imagenet_cvpr09.pdf).
+
+Size changes the nature of the problem. Recognising centred digits on a plain background is not the same as recognising dogs, vehicles or instruments in different poses, backgrounds, lighting and scales.
+
+A higher-capacity model needs more examples to avoid simply memorising the training set. ImageNet provided both data and a common benchmark for comparing methods.
+
+## AlexNet: several pieces falling into place
+
+In 2012, Alex Krizhevsky, Ilya Sutskever and Geoffrey Hinton trained a deep CNN for the ImageNet challenge.
+
+The network we now call AlexNet had:
+
+- five convolutional layers;
+- three fully connected layers;
+- around 60 million parameters;
+- ReLU activations;
+- max pooling;
+- *data augmentation*;
+- dropout;
+- and an optimised implementation running on two 3 GB GTX 580 GPUs.
+
+The model was trained on roughly 1.2 million images from 1,000 classes. The entry submitted to the challenge achieved a *top-5* error of 15.3%, against 26.2% for the runner-up. [Krizhevsky, Sutskever and Hinton, 2012](https://proceedings.neurips.cc/paper_files/paper/2012/file/c399862d3b9d6b76c8436e924a68c45b-Paper.pdf).
+
+*Top-5* error counts a prediction as correct if the true category appears among the five most probable options.
+
+There was no single magic trick.
+
+Convolutions built in locality and shared weights. ReLU sped up training compared with saturating activations. Artificially augmenting the data with crops, reflections and colour variations helped generalisation. Dropout fought excessive co-dependence between units. GPUs made it possible to train a network that, even so, took five to six days.
+
+And the dataset provided the diversity a large architecture needed to learn something useful.
+
+AlexNet did not invent CNNs, rectified activations, backpropagation or GPU training. Its historical importance comes from effectively combining several earlier lines of work and demonstrating a highly visible improvement in an influential competition.
+
+## What a CNN actually learns
+
+When a CNN receives an image, it does not scan it like a person consciously listing objects.
+
+It performs successive numerical transformations. Each filter produces responses. Activations introduce non-linearity. Downsampling changes the resolution. The final layers turn the resulting representations into scores for each category.
+
+During training, backpropagation computes how each filter affects the loss. The filters are updated, and the whole hierarchy adapts together.
+
+This ability has limits too. A CNN can learn spurious correlations: associating a class with a background, a watermark or a common texture. It can fail under distribution shift, carefully crafted manipulations or situations underrepresented in its data.
+
+Building in spatial structure helps learning. It is not the same as understanding a scene the way a human does.
+
+## What convolutions added to the story
+
+The perceptron taught us to fit a boundary. Multilayer networks let us learn representations. GPUs made it possible to repeat the computation at scale.
+
+CNNs added another idea: **the architecture can encode knowledge about the structure of the problem**.
+
+An image is not an arbitrary list of numbers. It has neighbourhoods, repeated patterns and spatial hierarchies. By designing a network that respects those properties, we need fewer parameters and get a form of learning better suited to the domain.
+
+This principle will keep coming back. To work with sequences we will need to represent order and memory. To work with language we will need to discover relationships between elements that may be far apart.
+
+### Further reading
+
+1. Hubel and Wiesel, [*Receptive Fields, Binocular Interaction and Functional Architecture in the Cat’s Visual Cortex*](https://pmc.ncbi.nlm.nih.gov/articles/PMC1359523/) (1962).
+2. Fukushima, [*Neocognitron: A Self-organizing Neural Network Model for a Mechanism of Pattern Recognition Unaffected by Shift in Position*](https://pubmed.ncbi.nlm.nih.gov/7370364/) (1980).
+3. LeCun, Bottou, Bengio and Haffner, [*Gradient-Based Learning Applied to Document Recognition*](https://proceedingsoftheieee.ieee.org/gradient-based-learning-applied-to-document-recognition/) (1998).
+4. Deng et al., [*ImageNet: A Large-Scale Hierarchical Image Database*](https://www.image-net.org/static_files/papers/imagenet_cvpr09.pdf) (2009).
+5. Krizhevsky, Sutskever and Hinton, [*ImageNet Classification with Deep Convolutional Neural Networks*](https://proceedings.neurips.cc/paper_files/paper/2012/file/c399862d3b9d6b76c8436e924a68c45b-Paper.pdf) (2012).
+
+## Next chapter
+
+### Proposal for the next chapter
+
+**Chapter 5 · When networks left the spotlight: AI winters and statistical learning**
+
+Between the early enthusiasm for the perceptron and the public success of AlexNet, there were decades in which neural networks did not dominate artificial intelligence. The next chapter will explain why: inflated expectations, technical limits, underpowered computers, a lack of large datasets and competition from other approaches. We will look at the rise of expert systems and why they also went through a crisis, before studying how statistical methods such as logistic regression, decision trees, support vector machines and probabilistic models changed the field. The aim will be to show that deep learning did not fill a vacuum, but displaced an ecosystem of techniques that is still useful today.
+
+The three questions it will answer:
+
+1. Was there really a single "AI winter"?
+2. Why did neural networks lose prominence despite advances like LeNet?
+3. What did statistical learning contribute that still holds value today?
+
+If that interests you, we will revisit this historical part before moving on to recurrent networks and language; you can also choose a different direction.

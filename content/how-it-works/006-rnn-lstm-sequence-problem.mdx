@@ -1,0 +1,298 @@
+---
+title: "Machines With Memory: RNNs, LSTMs And The Problem Of Sequences"
+slug: "rnn-lstm-sequence-problem"
+chapter: 6
+description: "How recurrent networks process sequences, why their gradients break down and how the gates of an LSTM control memory."
+publishedAt: "2026-10-14"
+category: "Artificial Intelligence"
+tags:
+  - RNN
+  - LSTM
+  - Deep Learning
+  - Sequences
+status: "published"
+nextChapterSuggestion: "Words turned into coordinates: embeddings and the representation of language"
+---
+
+A photograph stays still while we analyse it. A conversation, on the other hand, unfolds: each word changes how we can interpret the ones that follow.
+
+Compare these two sentences:
+
+> The dog bit the man.  
+> The man bit the dog.
+
+They contain the same words, but describe different events. A model that simply counted word frequencies would miss the difference. To work with language, audio or time series, we need to represent not only which elements appear, but also in what order and how they relate.
+
+Recurrent networks tackled this problem with a simple idea: let today's computation depend on a state produced yesterday. LSTMs refined that idea by separating the storage of information from the mechanisms that control how it is updated.
+
+The difficulty was not just building a machine with memory. It was getting it to learn what was worth remembering.
+
+## 1. From an isolated input to a process
+
+A fully connected network takes an input and computes an output. We could feed a whole sentence in as a single vector, but we would have to pick a maximum length and handle each position explicitly.
+
+Another option is a window: to predict the next word, look at the previous five. It works, but it imposes a rigid limit. Whatever happened six positions back is out of reach.
+
+A **recurrent neural network**, or RNN, uses a state that is updated as each element arrives:
+
+$$
+h_t=\tanh(W_xx_t+W_hh_{t-1}+b_h)
+$$
+
+Here:
+
+- $x_t$ is the input at step $t$.
+- $h_{t-1}$ is the previous state.
+- $h_t$ is the new state.
+- $W_x$ and $W_h$ are learned matrices.
+- $b_h$ is a bias.
+- $\tanh$ introduces non-linearity and returns values between −1 and 1.
+
+If the input has 32 components and the state has 128, $W_x$ will be $128\times32$, while $W_h$ will be $128\times128$.
+
+The key point is that we reuse the same matrices at every step. A longer sentence requires more operations, not a new set of parameters for each position.
+
+For a developer, the closest analogy is a `reduce` with an accumulator:
+
+```typescript
+let state = initialState;
+
+for (const input of sequence) {
+  state = update(state, input);
+}
+```
+
+The difference is that `update` contains no hand-written rules: its parameters are learned.
+
+Jeffrey Elman studied this kind of dynamic memory in *Finding Structure in Time*, published in 1990, using connections that fed the previous state back into the processing of the next element. It was not the origin of all recurrent research, but it was an influential work on learning temporal structure. [Elman, 1990](https://doi.org/10.1207/s15516709cog1402_1).
+
+## 2. What "remembering" really means
+
+Consider a model that receives:
+
+> I've lived in Málaga for ten years and this afternoon I'm going to…
+
+To predict what comes next, the state might retain information about the language, the grammatical structure and a few relevant elements of the context. But it does not necessarily contain a retrievable copy of every word.
+
+The state is a **learned representation of the past**: a task-oriented compression.
+
+If we train the network to classify emails, it will have an incentive to keep spam signals. If we train it to predict temperatures, it will care about different temporal patterns.
+
+We can produce an output at each step:
+
+$$
+p_t=\operatorname{softmax}(W_yh_t+b_y)
+$$
+
+The *softmax* function turns scores into a probability distribution. In a language model, each component can correspond to an item in the vocabulary.
+
+We can also use only the final state to classify an entire sequence. This gives rise to different configurations: recognising the sentiment of a review, labelling each fragment of audio or predicting the next value in a series.
+
+"Memory" here is a functional description. It does not imply conscious recollection or exact storage comparable to a database.
+
+## 3. Training a network unrolled through time
+
+At run time we see a loop. To compute gradients, we can picture it unrolled: each step becomes one application of the same module.
+
+The total loss can add up the errors from every step:
+
+$$
+L=\sum_{t=1}^{T}L_t
+$$
+
+Now we apply backpropagation to that unrolled graph. The procedure is called **backpropagation through time**, or BPTT.
+
+A weight in $W_h$ takes part repeatedly. Its gradient has to accumulate the contributions from all those appearances. What's more, an error at the end may depend on an input received much earlier.
+
+Imagine this sentence:
+
+> The password they gave me during Monday's meeting was…
+
+To learn to use an early piece of information, the error from a later prediction has to send a useful signal back through many intermediate steps.
+
+This is where a difficulty we already met in deep networks reappears: the chain rule multiplies many derivatives in succession. A small RNN, unrolled over a long sequence, can become a very deep graph.
+
+In practice, **truncated BPTT** is often used: the sequence is processed in chunks and the gradient is limited in how far back it travels. The numerical state can carry over between chunks, even though the learning signal is cut at their boundaries. This saves memory and computation, but limits how directly responsibility can be assigned to distant events.
+
+## 4. The gradient that vanishes (or explodes)
+
+Let's simplify the problem to a single number:
+
+$$
+h_t=ah_{t-1}+x_t
+$$
+
+The influence of the state from $k$ steps ago on the current one is:
+
+$$
+\frac{\partial h_t}{\partial h_{t-k}}=a^k
+$$
+
+If $a=0.9$, after a hundred steps:
+
+$$
+0.9^{100}\approx0.0000266
+$$
+
+The signal has shrunk enormously. If $a=1.1$:
+
+$$
+1.1^{100}\approx13{,}781
+$$
+
+Now it has grown explosively.
+
+A real RNN uses matrices and activations, so this example does not capture all of its behaviour. But it shows the difficulty: propagating useful information through many multiplications can be numerically unstable.
+
+The **vanishing gradient** makes it hard to learn long-range dependencies. The **exploding gradient** can cause wildly disproportionate updates.
+
+A common remedy for the latter is *gradient clipping*: if the norm of the gradient exceeds a threshold, it is rescaled before the parameters are updated. Pascanu, Mikolov and Bengio analysed these problems and justified this strategy in their 2013 paper. Clipping controls explosions; it does not rebuild a signal that has already vanished. [Pascanu, Mikolov and Bengio, 2013](https://proceedings.mlr.press/v28/pascanu13.html).
+
+## 5. LSTM: separating memory from control
+
+In 1997, Sepp Hochreiter and Jürgen Schmidhuber introduced **Long Short-Term Memory**, or LSTM. Their central contribution was cells with a storage pathway designed to make it easier to preserve information and propagate the error through time. [Hochreiter and Schmidhuber, 1997](https://doi.org/10.1162/neco.1997.9.8.1735).
+
+It is worth distinguishing the original design from the variant usually taught today. The well-known **forget gate** was added later, in work by Felix Gers, Schmidhuber and Fred Cummins published in 2000. [Gers, Schmidhuber and Cummins, 2000](https://doi.org/10.1162/089976600300015015).
+
+We will explain that later variant, without special connections such as so-called *peepholes*.
+
+An LSTM maintains two vectors:
+
+- $c_t$: the cell state, the main storage pathway.
+- $h_t$: the hidden state, used as the output and as the recurrent input.
+
+The analogy of a notebook and its visible summary can help: not everything stored has to be exposed immediately. But both are distributed numerical vectors, not documents with readable fields.
+
+## 6. The gates, equation by equation
+
+First we concatenate the current input and the previous hidden state:
+
+$$
+u_t=[h_{t-1};x_t]
+$$
+
+The gates use the sigmoid function:
+
+$$
+\sigma(z)=\frac{1}{1+e^{-z}}
+$$
+
+Its output lies between 0 and 1. A value close to zero blocks a component; one close to one lets it through. They are not necessarily binary switches.
+
+The **forget gate** computes how much to keep:
+
+$$
+f_t=\sigma(W_fu_t+b_f)
+$$
+
+The **input gate** decides how much to write:
+
+$$
+i_t=\sigma(W_iu_t+b_i)
+$$
+
+Another transformation proposes the new content:
+
+$$
+\tilde c_t=\tanh(W_cu_t+b_c)
+$$
+
+The core update is:
+
+$$
+c_t=f_t\odot c_{t-1}+i_t\odot\tilde c_t
+$$
+
+The symbol $\odot$ denotes element-wise multiplication. Each dimension can keep a different proportion of the past and take in a different amount of new information.
+
+Finally, the **output gate** controls which part is exposed:
+
+$$
+o_t=\sigma(W_ou_t+b_o)
+$$
+
+$$
+h_t=o_t\odot\tanh(c_t)
+$$
+
+All the matrices and biases are trained together with gradients. Nobody says explicitly: "now remember the subject". That behaviour can only emerge if it helps reduce the loss.
+
+## 7. A small memory experiment
+
+Suppose one component of the cell contains:
+
+$$
+c_{t-1}=0.8
+$$
+
+At the next step we get:
+
+$$
+f_t=0.99,\qquad i_t=0.02,\qquad \tilde c_t=-0.5
+$$
+
+Then:
+
+$$
+c_t=0.99\cdot0.8+0.02(-0.5)=0.782
+$$
+
+The previous information barely changes. If, instead, $f_t=0.05$ and $i_t=0.9$, the cell can discard most of its content and write something new.
+
+The architectural difference lies in the additive pathway. There is a direct path between consecutive states whose partial derivative, holding the gates fixed, is:
+
+$$
+\frac{\partial c_t}{\partial c_{t-1}}=f_t
+$$
+
+When the forget gates stay close to one, that path can preserve the signal better. The full gradient includes other dependencies, so this expression alone does not describe the whole dynamics.
+
+Nor does it guarantee unlimited memory. Even $0.99^{100}\approx0.366$: small repeated losses add up. The architecture makes certain dependencies easier to learn; it does not eliminate the problem.
+
+## 8. From recognising sequences to transforming them
+
+Gated recurrent networks became especially important in speech recognition, handwriting and language processing.
+
+In 2014, Sutskever, Vinyals and Le presented an LSTM-based *sequence-to-sequence* translation system: one network encoded the input sequence and another generated the output. The work showed how to transform sequences of different lengths using neural learning. [Sutskever, Vinyals and Le, 2014](https://proceedings.neurips.cc/paper_files/paper/2014/hash/5a18e133cbf9f257297f410bb7eca942-Abstract.html).
+
+The idea was powerful, but squeezing an entire sentence into a fixed representation could create a bottleneck. That difficulty contributed to the development of attention mechanisms: letting the generator consult different representations of the input instead of relying solely on a final summary.
+
+It was neither an inevitable evolution nor an instant replacement. For years, attention and recurrence were used together.
+
+## 9. What LSTMs didn't solve
+
+An LSTM performs several transformations per step and uses more parameters than a simple RNN. GRUs later explored a different, more compact combination of gates.
+
+Recurrence also imposes a temporal dependency: to compute $h_t$, we need the previous state. We can parallelise matrix operations and process several sequences at once, but we cannot freely compute all the states of a single sequence in parallel.
+
+The state is still finite, too. We cannot assume it will retain every detail of an arbitrarily long input exactly. And remembering a signal is not the same as learning how to use it correctly.
+
+In exchange, a recurrent architecture can process a stream incrementally, keeping a fixed-size state without explicitly storing every previous element. That property is still valuable in certain systems.
+
+Its fundamental contribution was teaching us that learning over sequences requires controlling the flow of information: what comes in, what persists, what gets overwritten and what reaches the output.
+
+Before looking at how to retrieve information with attention, we need to answer another question: what numbers do we feed into the network when the input is a word?
+
+### Further reading
+
+1. Elman, [*Finding Structure in Time*](https://doi.org/10.1207/s15516709cog1402_1) (1990).
+2. Hochreiter and Schmidhuber, [*Long Short-Term Memory*](https://doi.org/10.1162/neco.1997.9.8.1735) (1997).
+3. Gers, Schmidhuber and Cummins, [*Learning to Forget: Continual Prediction with LSTM*](https://doi.org/10.1162/089976600300015015) (2000).
+4. Pascanu, Mikolov and Bengio, [*On the Difficulty of Training Recurrent Neural Networks*](https://proceedings.mlr.press/v28/pascanu13.html) (2013).
+5. Sutskever, Vinyals and Le, [*Sequence to Sequence Learning with Neural Networks*](https://proceedings.neurips.cc/paper_files/paper/2014/hash/5a18e133cbf9f257297f410bb7eca942-Abstract.html) (2014).
+
+## Next chapter
+
+### Proposal for the next chapter
+
+**Chapter 7 · Words turned into coordinates: embeddings and the representation of language**
+
+So far we have written $x_t$ as if a word could go straight into a matrix. The next chapter will open that box: we will start with identifiers and *one-hot* vectors, see why they express no similarity and build up the idea of a learned embedding. We will walk through neural language models and Word2Vec to understand how predicting contexts produces useful representations, without confusing geometric proximity with human understanding. We will look at examples of similarity, polysemy and bias, as well as the limitations of assigning a single vector to each word. Finally we will connect those static representations with contextual ones: the same term may need different coordinates depending on the sentence. It will be the bridge between the sequences of this chapter and attention mechanisms.
+
+Three questions it will answer:
+
+1. What is the difference between identifying a word and representing it with an embedding?
+2. How does Word2Vec learn useful relationships without being given dictionary definitions?
+3. Why shouldn't "bank" always have the same representation?
+
+Does this topic interest you, or would you prefer another? If you don't ask for a change, we will continue with embeddings.
