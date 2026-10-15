@@ -1,0 +1,200 @@
+---
+title: "Words Turned Into Coordinates: Embeddings And The Representation Of Language"
+slug: "embeddings-language-representation"
+chapter: 7
+description: "How a machine learns numerical representations of language, from word vectors to contextualised embeddings."
+publishedAt: "2026-10-15"
+category: "Artificial Intelligence"
+tags:
+  - Embeddings
+  - NLP
+  - Word2Vec
+  - Representation Learning
+status: "published"
+nextChapterSuggestion: "Attention and transformers: queries, keys and values"
+---
+
+Imagine you are building a search engine for a company's documentation. Someone types "recover password", but the useful document is titled "Credential reset". Comparing characters helps very little: the strings are different, even though the intentions may match. How do we represent that relationship without writing, by hand, a dictionary of every way of asking for the same thing?
+
+An embedding is a representation as a vector: a list of numbers that places an element in a coordinate space. The element may be a word, a fragment of text or a product. The interesting part is not turning it into numbers, but learning numbers whose relationships are useful for a task.
+
+In this chapter we will follow the path from meaningless identifiers to context-sensitive representations. The central question will always be the same: what kind of training makes two expressions end up close together, and what can we really infer from that closeness?
+
+## Origins
+
+### An identifier is not a description
+
+A program can assign "cat" the identifier 17, "dog" 18 and "airplane" 19. They are valid keys for a table, but it would be absurd to conclude that dog is semantically halfway between cat and airplane. The order comes from our assignment, not from language.
+
+One alternative is the one-hot representation: if the vocabulary has ten thousand entries, each word gets a vector with ten thousand positions, all zero except the one matching its identifier. No word is artificially placed above another. However, any two different words have a dot product of zero and the same Euclidean distance. "Cat" is as far from "dog" as it is from "mortgage".
+
+This does not make one-hot a useless technique. It is an unambiguous encoding that can feed a model capable of learning relationships. The problem appears when we expect the encoding itself to contain those relationships, or when we try to model every combination of words as an independent case.
+
+### Learning from the neighbours
+
+The distributional intuition consists of observing the surroundings in which words appear. "Cat" and "dog" may share verbs such as eat and sleep, or expressions related to care and animals. They do not have to appear together: it is enough for them to have partially similar patterns of use.
+
+One way to exploit this is to count co-occurrences. We build a matrix whose rows are words and whose columns represent contexts; each cell records how many times we found a given combination. We can weight those counts and reduce their dimensions to keep the relevant patterns. This family of methods is an important precedent: representing language with vectors did not start with word2vec.
+
+The analogy of a map helps, with one caveat. On a geographic map we know what the coordinates mean. In a learned space, we usually cannot call axis 12 "animalness" or axis 37 "formality". Properties are spread across many dimensions. The geometry is a result of training, not a catalogue of attributes defined by a linguist.
+
+## Historical evolution
+
+In 2003, Bengio, Ducharme, Vincent and Jauvin published a neural probabilistic language model that jointly learned word representations and a function to predict them in context. The problem was generalisation: there are so many possible sequences that even a large corpus leaves an enormous number unobserved. Sharing properties through continuous representations made it possible to transfer information between related combinations. Their work did not invent distributed representations as a whole, but it showed an influential formulation of joint learning.
+
+In 2013, the work associated with word2vec made obtaining word vectors at scale especially practical. CBOW and skip-gram simplified the training task. Broadly speaking, CBOW predicts a word from its surroundings; skip-gram starts from a word and tries to predict nearby words. The reusable result was a table of vectors that other systems could use as input.
+
+In 2014, Pennington, Socher and Manning presented GloVe. Its training exploited global co-occurrence statistics through an objective fitted to those statistics. Rather than picturing a contest between counting and learning, it is more accurate to see different ways of turning linguistic evidence into a useful geometry.
+
+In 2018, Peters and his collaborators presented ELMo: deep, contextualised representations obtained from a bidirectional LSTM language model. The representation of a specific occurrence of a word could depend on the sentence. This transition connects directly with recurrent networks: embeddings and RNNs were not incompatible stages, but components that could work together.
+
+These advances did not erase earlier methods either. A small, static table may be enough for a limited system; a contextual model costs more, but it distinguishes uses that a single row per word inevitably blends together.
+
+## Technical explanation
+
+### A trainable table
+
+Suppose a vocabulary of 50,000 tokens and vectors with 300 components. A token is a unit chosen by the text processing: it can be a word, a fragment or a symbol. For now, let's imagine whole words.
+
+The embedding matrix has 50,000 rows and 300 columns. Looking up a token's embedding consists of selecting its row. Mathematically it is equivalent to multiplying its one-hot vector by that matrix; an efficient implementation performs an index lookup, without building thousands of zeros.
+
+That is 15 million parameters. With 32-bit numbers, this table alone takes up about 60 million bytes, roughly 57 MiB. Training needs additional memory for gradients and, depending on the optimiser, auxiliary state. The size of the vocabulary is therefore a computational decision as well as a linguistic one.
+
+When it is initialised randomly, the table does not yet contain useful relationships. They appear when a learning objective modifies its rows. An embedding layer does not learn semantics merely by existing: it needs a task and data that put pressure on its values.
+
+### A small lookup example
+
+This code uses made-up coordinates to illustrate an operation, not the results of any training:
+
+```python
+from math import sqrt
+
+vocabulary = ["cat", "dog", "airplane"]
+vectors = [
+    [1.0, 0.0],
+    [0.8, 0.2],
+    [0.0, 1.0],
+]
+
+def cosine(a, b):
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = sqrt(sum(x * x for x in a))
+    norm_b = sqrt(sum(y * y for y in b))
+    return dot / (norm_a * norm_b)
+
+cat = vectors[vocabulary.index("cat")]
+dog = vectors[vocabulary.index("dog")]
+print(round(cosine(cat, dog), 3))  # 0.970
+```
+
+The cosine compares the orientation of two non-zero vectors:
+
+$$
+\operatorname{cos}(a,b)=\frac{a\cdot b}{\|a\|\,\|b\|}
+$$
+
+The dot represents the dot product and the bars represent the norm, or length. The result is one for vectors pointing in the same direction, zero if they are perpendicular and minus one if they point in opposite directions.
+
+In the example, we placed cat and dog close together ourselves. A real system has to learn a useful organisation. Moreover, 0.970 does not mean "a 97% probability that they are synonyms". It is a geometric score whose interpretation depends on the model and the data.
+
+### Creating exercises from text
+
+Consider "the cat sleeps on the rug". With a window of one token on each side, skip-gram can produce the pairs cat–the and cat–sleeps. We repeat the process over many positions in the corpus. This way we obtain examples without asking a person to label millions of relationships.
+
+To understand how the numbers are adjusted, we can study a smaller binary exercise: deciding whether a pair comes from the observed contexts or from noise sampling. We use an input vector for the centre word and an output vector for the candidate context. During training they are two different tables.
+
+Let's call v the centre vector and u the context vector. Their dot product produces a score s. The sigmoid function maps it to a value between zero and one:
+
+$$
+p=\sigma(s)=\frac{1}{1+e^{-s}},\qquad s=u\cdot v
+$$
+
+The letter e represents the base of the natural logarithm. If s is large and positive, p approaches one; if it is very negative, it approaches zero.
+
+With a label y that is one for an observed example and zero for a noise example, we use the logistic loss:
+
+$$
+\ell=-y\log p-(1-y)\log(1-p)
+$$
+
+This expression penalises giving a low score to the observed example or too high a score to the noise example. Its derivative with respect to s is p minus y. If an observed pair starts with p equal to 0.5, that derivative is negative; gradient descent will tend to increase its score. For a noise example with the same p, it will tend to decrease it.
+
+The exact movement depends on both vectors: the derivative with respect to v is the vector u multiplied by p minus y. This connection with backpropagation shows that we are not dealing with a mysterious operation. These are parameters adjusted to reduce errors across many small exercises.
+
+Word2vec's negative sampling uses this kind of objective to distinguish observed pairs from sampled ones. Avoiding the evaluation of the entire vocabulary makes training more manageable. Its binary scores are not, on their own, a normalised probability distribution over all words.
+
+### How a shared geometry emerges
+
+If cat and dog must obtain similar scores across many contexts, they receive partially similar pressures. Since all words share the same tables and a limited number of dimensions, the system reuses directions to accommodate regularities.
+
+The explanation does not imply that every update directly moves the two input vectors closer. What gets optimised are relationships between inputs and outputs. The emergence of useful neighbours is a consequence of the whole set of constraints, not an explicit rule saying "group the animals together".
+
+Which contexts we define also matters. A small window may highlight local grammatical usage; a wider one may capture thematic associations. The size of the corpus, word frequency and sampling all influence the result. There is no single correct geometry of language independent of all these decisions.
+
+### The same word, different occurrences
+
+A static table returns the same row for "bank" in "sitting on the river bank" and "applying for a loan at the bank". To tell them apart we need a representation that incorporates the rest of the sequence.
+
+A contextual model starts with numerical inputs and computes states that depend on other positions. In ELMo, recurrent networks processed the text in both directions and their layers contributed representations that could be combined for other tasks. The final vector for an occurrence could reflect information that was not present in its isolated identity.
+
+It is worth keeping three objects apart: the token's identifier, its input embedding and its subsequent contextual representation. They must also be distinguished from a single vector for a sentence or document. Getting good sentence vectors requires deciding how to aggregate them and, often, training with objectives suited to comparing texts.
+
+## Practical applications
+
+Let's go back to the documentation search engine. One possible design splits the documents into chunks, computes a vector per chunk and stores those vectors alongside their identifiers. When a question arrives, it computes its representation and retrieves candidates by similarity.
+
+For this to work, queries and documents must end up in compatible spaces. Two models can generate vectors of the same size and still use coordinates that cannot be compared. Even an update to the same model may force the index to be recomputed.
+
+The retrieved candidates still need evaluation. For real queries, we can check how many relevant documents appear among the top results and review failures involving synonyms, negations and domain terms. A fast vector index does not fix an inadequate representation.
+
+In a support system, "I can't log in" and "authentication failure" could be related without sharing any words. On the other hand, an exact error number or a product reference may favour lexical search. Combining both signals is an engineering decision that should be justified with real usage examples, not with the novelty of the method.
+
+Another application is classifying messages. A model can reuse vectors learned from large amounts of text and then fine-tune them to distinguish categories. This can reduce the amount of labelled data needed, although it also carries over characteristics of the original corpus. Freezing the table preserves its values; allowing it to be fine-tuned adapts the representations, at the risk of overfitting if examples are scarce.
+
+## Limitations and misconceptions
+
+### Closeness is not truth
+
+Two opposite concepts can share contexts. "Increase" and "reduce" appear alongside costs, taxes or speed. A model may represent them close together even though swapping one for the other radically changes an instruction.
+
+Vector analogies are suggestive demonstrations, but not algebraic laws of meaning. Subtracting and adding vectors can recover certain relationships on particular evaluation sets; it can also fail because of frequency, polysemy or the way candidates are selected. It does not turn the table into a general reasoning engine.
+
+Texts contain social associations and errors, and training can build them into its representations. Learned similarity describes regularities in the data under a specific objective; it does not certify that they are true, fair or appropriate for a decision.
+
+### The vocabulary leaves its mark
+
+A word missing from a table of whole words has no row of its own. Splitting text into smaller units makes it possible to represent many new forms through known components, although it does not guarantee understanding them. It also increases or changes the length of the sequence the model has to process.
+
+Frequency matters too: a term seen ten times offers less evidence than one seen ten million times. Mixing medical documents with informal conversations can help cover more uses, but it can also displace relationships that matter for a specialised application.
+
+Finally, projecting hundreds of dimensions down to two is a simplification. A pretty chart can suggest clusters, but it loses information and depends on the reduction method. To evaluate a representation, what matters is how it behaves on the task, not just gazing at a map.
+
+## What comes next
+
+Embeddings provide a numerical interface between symbols and learning. The input table answers "which unit am I reading?". A contextual model adds "what role does this occurrence play among the others?". That second question needs a mechanism for exchanging information between positions.
+
+Recurrent networks offer one: updating a state while traversing the sequence. Attention offers another possibility: computing which information from other positions is relevant to a given position. Transformers organise that exchange through attention and other operations, keeping embeddings as part of their input.
+
+It is not that vectors become obsolete. What changes is how they are transformed. Understanding that difference avoids confusing the initial representation with the complete system that processes it, and lays the groundwork for understanding queries, keys and values without attributing magical abilities to them.
+
+### Further reading
+
+- Bengio et al., 2003. *A Neural Probabilistic Language Model*. Joint learning of representations and prediction: https://www.jmlr.org/papers/v3/bengio03a.html
+- Mikolov et al., 2013. *Efficient Estimation of Word Representations in Vector Space*. Introduction of CBOW and skip-gram: https://arxiv.org/abs/1301.3781
+- Mikolov et al., 2013. *Distributed Representations of Words and Phrases and their Compositionality*. Negative sampling and extensions: https://arxiv.org/abs/1310.4546
+- Pennington, Socher and Manning, 2014. *GloVe: Global Vectors for Word Representation*. Representations based on global statistics: https://aclanthology.org/D14-1162/
+- Peters et al., 2018. *Deep Contextualized Word Representations*. Context-dependent representations with ELMo: https://aclanthology.org/N18-1202/
+
+## Next chapter
+
+### Proposal for the next chapter
+
+**Tentative title: Attention and Transformers: Queries, Keys and Values.**
+
+We already know how to turn units of language into vectors, but we still need to explain how a word can incorporate information from another one far away. The next chapter will start from that need and build the attention mechanism with a small example that can be computed by hand. We will see how queries, keys and values are obtained through learned transformations, how their scores are turned into weights and how those weights mix information. Then we will place attention inside a transformer block: multiple heads, residual connections, normalisation and a per-position network. We will also look at how order is introduced and why a causal mask prevents future tokens from being used during prediction. The connection with this chapter will be direct: embeddings will be the raw material for all of those operations.
+
+1. What exactly do a query, a key and a value represent?
+2. How does softmax turn scores into a mixture of information?
+3. What do positions and masks contribute that attention, on its own, does not know?
+
+Does this topic interest you, or would you prefer to steer the next chapter towards something else?
