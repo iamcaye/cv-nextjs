@@ -1,8 +1,8 @@
 ---
-title: "Atención Y Transformers: Queries, Keys Y Values"
+title: "Attention And Transformers: Queries, Keys And Values"
 slug: "atencion-transformers-queries-keys-values"
 chapter: 8
-description: "Cómo la atención mezcla información entre tokens y cómo los transformers combinan consultas, claves, valores, posiciones y máscaras."
+description: "How attention mixes information between tokens, and how transformers combine queries, keys, values, positions and masks."
 publishedAt: "2026-10-16"
 category: "Artificial Intelligence"
 tags:
@@ -11,84 +11,84 @@ tags:
   - NLP
   - Deep Learning
 status: "published"
-nextChapterSuggestion: "De los transformers a los LLM: preentrenamiento y predicción del siguiente token"
+nextChapterSuggestion: "From transformers to LLMs: pretraining and next-token prediction"
 ---
 
-Lee esta frase: «El servidor rechazó la petición porque estaba saturado». Para interpretar «estaba saturado» necesitas relacionarlo con algo anterior. Un sistema que solo mirase cada palabra por separado tendría información insuficiente. Los embeddings proporcionan coordenadas; todavía falta decidir qué información debe circular entre esas coordenadas.
+Read this sentence: "The server rejected the request because it was overloaded." To interpret "it was overloaded", you need to connect it to something earlier. A system that looked at each word in isolation would not have enough information. Embeddings provide coordinates; we still need to decide what information should travel between those coordinates.
 
-Una red recurrente construye esa comunicación recorriendo una secuencia y actualizando un estado. La atención propone otra operación: para cada posición, calcular una mezcla de información disponible en otras posiciones. Esa mezcla cambia según el contenido. No es una búsqueda de palabras idénticas ni una consulta a Internet: ocurre entre vectores que ya están dentro del cálculo.
+A recurrent network builds that communication by moving through a sequence and updating a state. Attention proposes a different operation: at each position, calculate a mixture of information available at other positions. That mixture changes with the content. It is neither a search for identical words nor a query to the Internet: it happens between vectors already inside the computation.
 
-Los transformers convirtieron esta operación en una pieza central de su arquitectura. Para entenderlos no hace falta imaginar una máquina que «presta atención» como una persona. Basta con seguir una cadena concreta: proyectar vectores, calcular compatibilidades, normalizar puntuaciones, mezclar valores y transformar el resultado.
+Transformers made this operation a central part of their architecture. Understanding them does not require imagining a machine that "pays attention" like a person. We can follow a concrete chain instead: project vectors, calculate compatibility scores, normalise those scores, mix values, and transform the result.
 
 ## Origins
 
-### Traducir sin comprimirlo todo en una sola nota
+### Translating without squeezing everything into one note
 
-Imagina que debes traducir un párrafo después de leerlo una vez, pero solo puedes conservar una nota de longitud fija. Cuanto más complejo sea el párrafo, más difícil será decidir qué guardar. Es una analogía del cuello de botella que aparecía en ciertos modelos encoder-decoder: un codificador convertía una secuencia en una representación fija y un decodificador generaba otra secuencia a partir de ella.
+Imagine translating a paragraph after reading it once, while being allowed to keep only a fixed-length note. The more complex the paragraph, the harder it becomes to decide what to retain. This is an analogy for the bottleneck in certain encoder-decoder models: an encoder converted a sequence into a fixed representation, and a decoder generated another sequence from it.
 
-El trabajo de Sutskever, Vinyals y Le de 2014 mostró resultados importantes utilizando LSTM para aprender esa transformación de secuencia a secuencia. El interés estaba en entrenar conjuntamente el sistema, en lugar de ensamblar manualmente todas las reglas de traducción. Pero una representación final fija obligaba a canalizar mucha información por el mismo punto.
+The 2014 work of Sutskever, Vinyals and Le demonstrated important results using LSTMs to learn this sequence-to-sequence transformation. The attraction was training the system jointly rather than manually assembling every translation rule. But a fixed final representation forced a great deal of information through the same point.
 
-Bahdanau, Cho y Bengio propusieron en 2014 un mecanismo de alineamiento aprendido, presentado en ICLR 2015. En cada paso de traducción, el decodificador podía combinar diferentes estados del texto de entrada. La atención permitía consultar distintas partes de la representación, en lugar de depender exclusivamente de un único resumen.
+In 2014, Bahdanau, Cho and Bengio proposed a learned alignment mechanism, presented at ICLR 2015. At each translation step, the decoder could combine different states of the input text. Attention allowed it to consult different parts of the representation instead of depending exclusively on a single summary.
 
-La palabra «alineamiento» tiene aquí un sentido práctico: al producir una palabra en el idioma de destino, puede resultar útil identificar qué partes del origen aportan información. No hace falta imponer una correspondencia uno a uno; varias posiciones pueden contribuir con pesos diferentes.
+"Alignment" has a practical meaning here: when producing a word in the target language, it can be useful to identify which parts of the source provide information. There is no need to impose a one-to-one correspondence; several positions can contribute with different weights.
 
 ## Historical evolution
 
-La atención no nació con el transformer. Primero se integró en sistemas recurrentes y convivió con otras propuestas para procesar secuencias. Tampoco había una única fórmula: podían calcularse compatibilidades mediante pequeñas redes neuronales o mediante productos escalares.
+Attention did not begin with the transformer. It was first integrated into recurrent systems and coexisted with other approaches to processing sequences. There was not just one formula, either: compatibility could be calculated with small neural networks or with dot products.
 
-En junio de 2017, Vaswani y sus colaboradores presentaron *Attention Is All You Need*. Su transformer utilizaba atención, sin recurrencia alineada con las posiciones ni convoluciones, para construir representaciones en una arquitectura encoder-decoder. Los experimentos principales eran de traducción automática. No era todavía el asistente conversacional que hoy suele venir a la cabeza al oír «transformer».
+In June 2017, Vaswani and colleagues introduced *Attention Is All You Need*. Their transformer used attention, without position-aligned recurrence or convolutions, to build representations in an encoder-decoder architecture. The main experiments concerned machine translation. It was not yet the conversational assistant that often comes to mind when we hear "transformer" today.
 
-La propuesta reunía varias piezas: atención escalada, múltiples cabezas, redes por posición, conexiones residuales, normalización e información posicional. Su ventaja no consistía únicamente en conectar palabras lejanas. También organizaba una parte importante del entrenamiento como operaciones matriciales paralelizables.
+The proposal brought together several components: scaled attention, multiple heads, position-wise networks, residual connections, normalisation, and positional information. Its advantage was not merely connecting distant words. It also organised a substantial part of training into parallelisable matrix operations.
 
-Esto no convirtió las CNN o las RNN en errores históricos. Cada arquitectura impone distintas restricciones y costes. Las convoluciones explotan vecindarios y estructuras locales; las recurrentes ofrecen estados que se actualizan secuencialmente; la atención densa compara muchas posiciones entre sí. La elección depende de la tarea, de los datos y del presupuesto computacional.
+This did not turn CNNs or RNNs into historical mistakes. Each architecture imposes different constraints and costs. Convolutions exploit neighbourhoods and local structure; recurrent networks offer states updated sequentially; dense attention compares many positions with one another. The choice depends on the task, the data, and the computational budget.
 
 ## Technical explanation
 
-### Tres vistas del mismo vector
+### Three views of the same vector
 
-Supongamos que tenemos una matriz X con n filas: una por token. Cada fila contiene d números que representan esa posición. En self-attention, o autoatención, obtenemos tres matrices mediante transformaciones aprendidas:
+Suppose we have a matrix X with n rows: one per token. Each row contains d numbers representing that position. In self-attention, we obtain three matrices through learned transformations:
 
 $$
 Q=XW_Q,\qquad K=XW_K,\qquad V=XW_V
 $$
 
-Las matrices W son parámetros del modelo. Q contiene las queries o consultas; K, las keys o claves; V, los values o valores. Las consultas y las claves deben tener la misma dimensión por cabeza para poder compararlas. Los valores pueden tener otra dimensión.
+The W matrices are model parameters. Q contains queries; K contains keys; V contains values. Queries and keys must have the same dimension within a head so that we can compare them. Values may have a different dimension.
 
-Podemos usar una analogía de recuperación de información. La query representa qué se busca; la key, cómo se presenta cada candidato para ser comparado; el value, qué información aporta ese candidato si recibe peso. La analogía ayuda, pero no hay tres textos en lenguaje natural escondidos dentro del modelo. Hay tres proyecciones numéricas.
+An information-retrieval analogy is useful. The query represents what is being sought; the key describes each candidate for comparison; the value is the information that candidate contributes if it receives weight. The analogy helps, but there are not three natural-language texts hidden inside the model. There are three numerical projections.
 
-¿Por qué no usar el mismo vector para todo? Porque decidir dónde buscar y decidir qué transportar son funciones distintas. Una transformación puede destacar características útiles para la compatibilidad y otra preparar contenido útil para la siguiente capa. El entrenamiento aprende esas transformaciones conjuntamente.
+Why not use the same vector for everything? Because deciding where to look and deciding what to transport are different functions. One transformation can emphasise features useful for compatibility, while another prepares content useful to the next layer. Training learns those transformations jointly.
 
-### De puntuaciones a una mezcla
+### From scores to a mixture
 
-Para una consulta q y una clave k, calculamos su producto escalar y lo dividimos por la raíz cuadrada de la dimensión de las claves. El resultado es una puntuación, no una probabilidad.
+For a query q and a key k, we calculate their dot product and divide it by the square root of the key dimension. The result is a score, not a probability.
 
-Después aplicamos softmax sobre las posiciones disponibles:
+We then apply softmax over the available positions:
 
 $$
 a_j=\frac{e^{s_j}}{\sum_r e^{s_r}}
 $$
 
-La letra s representa las puntuaciones; a, los pesos resultantes. La exponencial vuelve positivos los valores y el denominador hace que sumen uno. Si una puntuación aumenta respecto a las demás, recibe más peso. Una misma puntuación aislada no determina un peso fijo: importa con qué otros candidatos compite.
+The letter s represents scores; a represents the resulting weights. Exponentiation makes the values positive, and the denominator makes them sum to one. If a score rises relative to the others, it receives more weight. An isolated score does not determine a fixed weight: the competing candidates matter.
 
-Finalmente, multiplicamos cada vector de valores por su peso y sumamos los resultados. Para todas las consultas a la vez, la operación se escribe:
+Finally, we multiply each value vector by its weight and add the results. For all queries at once, the operation is written as:
 
 $$
 Z=\operatorname{softmax}\left(\frac{QK^\top}{\sqrt{d_k}}+M\right)V
 $$
 
-La T indica transposición. La matriz M es una máscara aditiva que permite bloquear conexiones. Softmax se aplica por filas: cada posición de consulta construye su propia distribución sobre las posiciones que puede consultar.
+The superscript T indicates transposition. M is an additive mask that can block connections. Softmax is applied row by row: each query position constructs its own distribution over the positions it is allowed to consult.
 
-El factor de escala evita que la dimensión infle excesivamente las puntuaciones. Bajo la hipótesis simplificadora de componentes independientes, centrados y con varianza uno, la varianza del producto escalar crece con la dimensión. Dividir por su raíz estabiliza esa escala. Es una justificación matemática bajo ciertas hipótesis, no una garantía universal sobre cualquier representación aprendida.
+The scaling factor prevents dimensionality from excessively inflating scores. Under the simplifying assumption of independent, zero-mean components with unit variance, the variance of the dot product grows with the dimension. Dividing by its square root stabilises that scale. This is a mathematical justification under particular assumptions, not a universal guarantee about every learned representation.
 
-### Un ejemplo que cabe en una calculadora
+### An example that fits on a calculator
 
-Utilicemos vectores inventados, sin atribuirles significado lingüístico. La consulta es q = [raíz de 2, 0]. Las tres claves son [1, 0], [0, 1] y [1, 1]. Como la dimensión es dos, al dividir los productos escalares por raíz de dos obtenemos las puntuaciones [1, 0, 1].
+Let us use invented vectors without assigning linguistic meaning to them. The query is q = [square root of 2, 0]. The three keys are [1, 0], [0, 1], and [1, 1]. Since the dimension is two, dividing the dot products by the square root of two gives the scores [1, 0, 1].
 
-Softmax produce aproximadamente [0,4223; 0,1554; 0,4223]. La primera y la tercera posición reciben el mismo peso. No se selecciona exclusivamente la mejor: se construye una combinación continua.
+Softmax produces approximately [0.4223, 0.1554, 0.4223]. The first and third positions receive the same weight. We do not exclusively select the best candidate: we construct a continuous combination.
 
-Ahora asignamos los valores [10, 0], [0, 10] y [4, 6]. La salida es aproximadamente [5,912; 4,088]. Observa la separación de funciones: las claves determinan los pesos, pero son los valores los que se mezclan. Cambiar el tercer valor modifica la salida sin modificar esas compatibilidades.
+Now assign the values [10, 0], [0, 10], and [4, 6]. The output is approximately [5.912, 4.088]. Notice the separation of responsibilities: keys determine the weights, but values are what get mixed. Changing the third value changes the output without changing those compatibility scores.
 
-Este programa reproduce el cálculo:
+This program reproduces the calculation:
 
 ```python
 from math import exp, sqrt
@@ -116,108 +116,108 @@ print([round(weight, 4) for weight in weights])
 print([round(number, 3) for number in output])
 ```
 
-Restamos el máximo antes de calcular exponenciales para mejorar la estabilidad numérica. No cambia softmax: numerador y denominador quedan multiplicados por el mismo factor. El ejemplo calcula una sola consulta; una implementación matricial realiza muchas simultáneamente.
+We subtract the maximum before exponentiation to improve numerical stability. This does not change softmax: numerator and denominator are multiplied by the same factor. The example calculates a single query; a matrix implementation handles many simultaneously.
 
-### Qué aprende y qué se recalcula
+### What is learned and what is recalculated
 
-Las matrices de proyección se aprenden durante el entrenamiento mediante gradientes. En cambio, los pesos de atención se recalculan para cada entrada a partir de esas matrices y de las representaciones presentes.
+The projection matrices are learned during training through gradients. Attention weights, by contrast, are recalculated for each input from those matrices and the representations currently present.
 
-Esta distinción evita una confusión frecuente. El modelo no guarda una tabla universal que diga que «servidor» debe mirar siempre a «saturado» con peso 0,8. Aprende transformaciones que, aplicadas a diferentes contextos, producen patrones diferentes.
+This distinction prevents a common misunderstanding. The model does not store a universal table saying that "server" must always look at "overloaded" with weight 0.8. It learns transformations that produce different patterns when applied to different contexts.
 
-Además, el producto escalar entre una query y una key no es necesariamente simétrico entre posiciones: la consulta de la posición A comparada con la clave de B puede dar una puntuación distinta de la consulta de B comparada con la clave de A. Las proyecciones de consulta y clave no tienen por qué coincidir.
+Furthermore, the dot product between a query and a key is not necessarily symmetric between positions: the query at position A compared with the key at B can yield a different score from the query at B compared with the key at A. Query and key projections need not be identical.
 
-### Varias cabezas, una representación común
+### Several heads, one shared representation
 
-Una sola cabeza produce una mezcla por posición. Varias cabezas calculan mezclas con proyecciones diferentes. Sus salidas se concatenan y se proyectan de nuevo para recuperar la dimensión que usa el resto del bloque.
+A single head produces one mixture per position. Multiple heads calculate mixtures using different projections. Their outputs are concatenated and projected again to recover the dimension used by the rest of the block.
 
-Una cabeza puede aprender relaciones locales y otra conexiones distantes, pero esos papeles no se asignan normalmente mediante etiquetas humanas. No debemos imaginar una lista fija de especialistas, uno para verbos y otro para pronombres. Es una interpretación posible de ciertos patrones observados, no una especificación de la arquitectura.
+One head may learn local relationships and another distant connections, but these roles are not normally assigned through human labels. We should not imagine a fixed roster of specialists, one for verbs and another for pronouns. That is a possible interpretation of certain observed patterns, not a specification of the architecture.
 
-El número de cabezas tampoco multiplica necesariamente la anchura total: es habitual repartir una dimensión común entre varias cabezas. Importan tanto el tamaño de cada subespacio como el coste de todas sus operaciones.
+The number of heads does not necessarily multiply the total width, either: it is common to divide a shared dimension among several heads. Both the size of each subspace and the cost of all their operations matter.
 
-### El orden no viene escrito en los números de fila
+### Order is not written into row numbers
 
-Si cambiamos el orden de las filas de una autoatención sin información posicional y sin una máscara que introduzca estructura, sus salidas se reordenan de forma correspondiente. La operación, por sí sola, no sabe que una palabra estaba antes que otra.
+If we reorder the rows of self-attention without positional information and without a mask introducing structure, its outputs are reordered correspondingly. The operation alone does not know that one word came before another.
 
-Pero «el perro persigue al gato» y «el gato persigue al perro» contienen relaciones diferentes. Necesitamos aportar información de posición. El transformer original sumaba señales posicionales sinusoidales a las representaciones de entrada; también estudiaba posiciones aprendidas. Existen otras maneras de introducir posiciones, pero no hacen falta para entender el principio.
+Yet "the dog chases the cat" and "the cat chases the dog" describe different relationships. We need to supply positional information. The original transformer added sinusoidal positional signals to its input representations; it also investigated learned positions. Other ways of introducing positions exist, but they are not necessary to understand the principle.
 
-Una máscara causal resuelve un problema distinto: qué información está permitida. Al predecir el token siguiente desde una posición, bloqueamos las posiciones futuras. En la fórmula, las conexiones permitidas reciben cero en M y las prohibidas reciben menos infinito, cuyo peso tras softmax es cero.
+A causal mask solves a different problem: which information is allowed. When predicting the next token from a position, we block future positions. In the formula, permitted connections receive zero in M and forbidden ones receive negative infinity, giving them zero weight after softmax.
 
-Si en nuestro ejemplo bloqueamos el tercer candidato, los pesos de los dos restantes pasan aproximadamente a 0,7311 y 0,2689. No basta con poner a cero el tercer peso después del cálculo sin renormalizar: cambiar qué candidatos participan cambia la distribución.
+If we block the third candidate in our example, the weights of the remaining two become approximately 0.7311 and 0.2689. Simply zeroing the third weight after the calculation without renormalising is not enough: changing which candidates participate changes the distribution.
 
-### Atención no es todo el bloque
+### Attention is not the whole block
 
-Después de intercambiar información entre posiciones, el bloque transforma cada posición mediante una red feed-forward. Esta red comparte sus parámetros entre posiciones y aplica transformaciones lineales separadas por una no linealidad. La atención comunica; la red por posición transforma lo comunicado.
+After exchanging information between positions, the block transforms each position through a feed-forward network. This network shares its parameters across positions and applies linear transformations separated by a nonlinearity. Attention communicates; the position-wise network transforms what has been communicated.
 
-Las conexiones residuales añaden la entrada de un subbloque a su salida. Así existe una ruta directa por la que conservar información y propagar gradientes, en lugar de exigir que cada transformación reconstruya todo desde cero.
+Residual connections add a subblock's input to its output. This provides a direct route for preserving information and propagating gradients, rather than requiring every transformation to reconstruct everything from scratch.
 
-La normalización por capa ajusta las activaciones usando estadísticas de las características de cada posición, con parámetros aprendidos de escala y desplazamiento. No consiste en normalizar una palabra frente a todas las palabras del corpus ni requiere calcular estadísticas de un lote completo. Ayuda a controlar el comportamiento numérico del entrenamiento.
+Layer normalisation adjusts activations using statistics across the features of each position, with learned scale and shift parameters. It does not normalise a word against every word in the corpus, nor does it require statistics over an entire batch. It helps control the numerical behaviour of training.
 
-El orden de estas operaciones varía entre arquitecturas. El transformer original colocaba la normalización después de la suma residual; también existen diseños que la sitúan antes del subbloque. «Transformer» designa una familia, no un único fichero de configuración.
+The order of these operations varies between architectures. The original transformer placed normalisation after the residual addition; other designs place it before the subblock. "Transformer" names a family, not a single configuration file.
 
 ## Practical applications
 
-### La misma operación, distintas conexiones
+### The same operation, different connections
 
-En self-attention, consultas, claves y valores proceden de la misma secuencia. En cross-attention, las consultas proceden de una secuencia y las claves y valores de otra. Por ejemplo, un decodificador de traducción puede consultar las representaciones producidas por un codificador del texto de origen.
+In self-attention, queries, keys, and values come from the same sequence. In cross-attention, queries come from one sequence while keys and values come from another. For example, a translation decoder can consult the representations produced by an encoder of the source text.
 
-La diferencia no requiere inventar otra operación matemática. Cambia de dónde vienen las matrices. Es similar a reutilizar una función con entradas de distintos módulos, siempre que las dimensiones y el significado del entrenamiento sean compatibles.
+The distinction does not require inventing a different mathematical operation. What changes is where the matrices come from. It resembles reusing a function with inputs from different modules, provided the dimensions and training semantics are compatible.
 
-Para clasificar un documento, un codificador puede utilizar contexto en ambas direcciones. Para generar una continuación, un decodificador causal solo puede consultar el prefijo permitido. Son restricciones distintas al servicio de tareas distintas.
+To classify a document, an encoder can use context in both directions. To generate a continuation, a causal decoder can consult only the permitted prefix. These are different restrictions serving different tasks.
 
-En software, una aplicación puede consistir en relacionar el uso de una variable con información anterior del código. En una frase, puede ser combinar un pronombre con indicios sobre su referente. Son ejemplos de relaciones que interesa aprender, no promesas de que cualquier cabeza las resolverá correctamente.
+In software, an application might involve relating a variable's use to earlier information in the code. In a sentence, it might involve combining a pronoun with clues about its referent. These are examples of relationships worth learning, not promises that any particular head will resolve them correctly.
 
-### Paralelo al entrenar, secuencial al generar
+### Parallel during training, sequential during generation
 
-Durante el entrenamiento conocemos la secuencia objetivo completa. Podemos introducirla desplazada y calcular muchas predicciones a la vez, siempre que la máscara impida que una posición acceda a la respuesta futura. Esto permite aprovechar grandes operaciones matriciales sin hacer trampas.
+During training, we know the complete target sequence. We can feed it in shifted form and calculate many predictions at once, provided the mask prevents each position from accessing its future answer. This allows large matrix operations without cheating.
 
-Al generar texto nuevo, todavía no conocemos el siguiente token. Hay que producirlo antes de usarlo como parte del contexto posterior. La ausencia de recurrencia dentro de una capa no elimina esa dependencia autoregresiva del proceso de generación.
+When generating new text, we do not yet know the next token. We must produce it before using it as part of the subsequent context. The absence of recurrence within a layer does not remove this autoregressive dependency from the generation process.
 
-Esta distinción explica por qué «procesa posiciones en paralelo» no significa «genera cualquier respuesta completa en un solo paso». Arquitectura, procedimiento de entrenamiento y algoritmo de generación son piezas relacionadas, pero diferentes.
+This distinction explains why "processes positions in parallel" does not mean "generates any complete response in a single step". Architecture, training procedure, and generation algorithm are related but different components.
 
 ## Limitations and misconceptions
 
-### Conectar todo cuesta
+### Connecting everything has a cost
 
-Con n posiciones, una cabeza de atención densa considera n por n pares. Si duplicamos la longitud, cuadruplicamos ese número. Para 4.096 posiciones son 16.777.216 puntuaciones: unos 32 MiB si materializáramos solo esa matriz con dos bytes por elemento. Faltan otras cabezas, activaciones y datos del entrenamiento.
+With n positions, a dense attention head considers n times n pairs. Doubling the length quadruples that number. For 4,096 positions, there are 16,777,216 scores: about 32 MiB if we materialised just that matrix using two bytes per element. Other heads, activations, and training data are not included.
 
-El cálculo es ilustrativo: las implementaciones eficientes no tienen por qué almacenar toda la matriz. FlashAttention, presentado por Dao y colaboradores en 2022, reorganiza el cálculo en bloques para reducir transferencias de memoria y evitar materializar grandes intermediarios. Calcula atención exacta, dentro de las diferencias habituales de aritmética numérica; no convierte por ello la atención densa en un algoritmo de tiempo lineal.
+This calculation is illustrative: efficient implementations need not store the whole matrix. FlashAttention, introduced by Dao and colleagues in 2022, reorganises computation into blocks to reduce memory transfers and avoid materialising large intermediate results. It computes exact attention, subject to ordinary numerical-arithmetic differences; that does not make dense attention a linear-time algorithm.
 
-Podemos imponer ventanas, introducir conexiones dispersas o cambiar el mecanismo. Cada opción modifica costes y, en ocasiones, qué relaciones puede utilizar directamente el modelo. La longitud de contexto no es una capacidad gratuita.
+We can impose windows, introduce sparse connections, or change the mechanism. Each option changes costs and, sometimes, which relationships the model can use directly. Context length is not a free capability.
 
-### Un peso no es una explicación completa
+### A weight is not a complete explanation
 
-Que una posición reciba mucho peso no demuestra que haya determinado por sí sola la respuesta. También importan sus valores, las proyecciones posteriores, las conexiones residuales y las demás capas. Mirar una matriz de atención muestra una parte del cálculo, no una explicación causal completa del sistema.
+A position receiving a large weight does not prove that it alone determined the answer. Its values, subsequent projections, residual connections, and other layers also matter. An attention matrix reveals part of the computation, not a complete causal explanation of the system.
 
-La atención tampoco comprueba hechos. Puede combinar eficazmente información incorrecta, aprender asociaciones espurias o perder una restricción relevante entre muchos tokens. El acceso directo a una posición no garantiza que el entrenamiento haya enseñado a utilizarla bien.
+Attention does not check facts, either. It can efficiently combine incorrect information, learn spurious associations, or lose a relevant constraint among many tokens. Direct access to a position does not guarantee that training has taught the model to use it well.
 
-Por último, mezclar vectores no implica conciencia ni intención. Palabras como consulta, memoria y atención nombran funciones computacionales. Las analogías ayudan a orientarse, pero dejan de ayudar cuando las confundimos con descripciones psicológicas.
+Finally, mixing vectors does not imply consciousness or intention. Words such as query, memory, and attention name computational functions. Analogies help us find our way, but stop helping when we mistake them for psychological descriptions.
 
 ## What comes next
 
-Ya podemos describir un transformer como un sistema que transforma representaciones mediante intercambios de información y operaciones locales. Todavía falta explicar por qué ese sistema puede terminar escribiendo código, resumiendo documentos o continuando una conversación.
+We can now describe a transformer as a system that transforms representations through information exchange and local operations. We still need to explain why such a system can end up writing code, summarising documents, or continuing a conversation.
 
-La arquitectura no determina por sí sola esas habilidades. También importan el objetivo de entrenamiento, el contenido de los datos, la escala y las evaluaciones. Una misma familia de bloques puede entrenarse para tareas diferentes.
+Architecture alone does not determine these abilities. The training objective, the content of the data, scale, and evaluations also matter. The same family of blocks can be trained for different tasks.
 
-El siguiente paso será estudiar una tarea aparentemente modesta: predecir el siguiente token. Veremos cómo transforma texto sin anotaciones manuales en ejemplos de aprendizaje, cómo una salida vectorial se convierte en probabilidades sobre un vocabulario y por qué reducir ese error puede producir capacidades útiles sin garantizar respuestas verdaderas.
+Our next step will be to study a seemingly modest task: predicting the next token. We will see how it turns text without manual annotations into training examples, how a vector output becomes probabilities over a vocabulary, and why reducing that error can produce useful capabilities without guaranteeing truthful answers.
 
-### Fuentes para profundizar
+### Further reading
 
-- Sutskever, Vinyals y Le, 2014. *Sequence to Sequence Learning with Neural Networks*. Antecedente encoder-decoder con LSTM: https://arxiv.org/abs/1409.3215
-- Bahdanau, Cho y Bengio, 2014; ICLR 2015. *Neural Machine Translation by Jointly Learning to Align and Translate*. Atención para consultar distintas partes de la entrada: https://arxiv.org/abs/1409.0473
-- Vaswani y colaboradores, 2017. *Attention Is All You Need*. Arquitectura transformer y atención por producto escalar escalado: https://arxiv.org/abs/1706.03762
-- Ba, Kiros y Hinton, 2016. *Layer Normalization*. Normalización mediante estadísticas de un ejemplo: https://arxiv.org/abs/1607.06450
-- Dao y colaboradores, 2022. *FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness*. Atención eficiente en acceso a memoria: https://arxiv.org/abs/2205.14135
+- Sutskever, Vinyals and Le, 2014. *Sequence to Sequence Learning with Neural Networks*. An LSTM encoder-decoder predecessor: https://arxiv.org/abs/1409.3215
+- Bahdanau, Cho and Bengio, 2014; ICLR 2015. *Neural Machine Translation by Jointly Learning to Align and Translate*. Attention for consulting different parts of the input: https://arxiv.org/abs/1409.0473
+- Vaswani and colleagues, 2017. *Attention Is All You Need*. Transformer architecture and scaled dot-product attention: https://arxiv.org/abs/1706.03762
+- Ba, Kiros and Hinton, 2016. *Layer Normalization*. Normalisation using statistics within an example: https://arxiv.org/abs/1607.06450
+- Dao and colleagues, 2022. *FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness*. Memory-access-efficient attention: https://arxiv.org/abs/2205.14135
 
 ## Next chapter
 
-### Propuesta para el siguiente capítulo
+### Proposed next chapter
 
-**Título tentativo: De Los Transformers A Los LLM: Aprender A Predecir El Siguiente Token.**
+**Tentative title: From Transformers To LLMs: Learning To Predict The Next Token.**
 
-Ahora que conocemos cómo un transformer intercambia información entre posiciones, podemos preguntarnos qué ejercicio lo convierte en un modelo del lenguaje. El próximo capítulo seguirá un fragmento de texto desde sus tokens hasta una distribución de probabilidades para la continuación. Explicaremos qué son los logits, cómo se calcula el error de predicción y por qué el propio texto proporciona las respuestas durante el preentrenamiento. También separaremos aprender patrones, memorizar fragmentos y generalizar a combinaciones nuevas. Veremos por qué un objetivo sencillo puede exigir representaciones complejas, sin confundir esa presión estadística con una garantía de razonamiento o veracidad. La conexión con esta entrega será directa: la salida del transformer alimentará la capa que puntúa cada posible token siguiente.
+Now that we know how a transformer exchanges information between positions, we can ask what exercise turns it into a language model. The next chapter will follow a piece of text from its tokens to a probability distribution for its continuation. We will explain logits, how prediction error is calculated, and why the text itself provides the answers during pretraining. We will also distinguish learning patterns, memorising passages, and generalising to new combinations. We will see why a simple objective can demand complex representations without mistaking that statistical pressure for a guarantee of reasoning or truthfulness. The connection to this chapter will be direct: the transformer's output will feed the layer that scores each possible next token.
 
-1. ¿Cómo se convierte un texto sin etiquetas humanas en millones de ejercicios?
-2. ¿Qué diferencia hay entre una representación contextual, un logit y una probabilidad?
-3. ¿Por qué predecir texto puede desarrollar capacidades útiles y también producir errores convincentes?
+1. How does text without human labels become millions of training exercises?
+2. What is the difference between a contextual representation, a logit, and a probability?
+3. Why can predicting text develop useful capabilities while also producing convincing mistakes?
 
-Puedes indicar si te interesa este tema o prefieres orientar el siguiente capítulo hacia otro asunto.
+Let me know whether this topic interests you or whether you would prefer to take the next chapter in another direction.
