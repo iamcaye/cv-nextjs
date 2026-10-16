@@ -1,0 +1,223 @@
+---
+title: "Attention And Transformers: Queries, Keys And Values"
+slug: "atencion-transformers-queries-keys-values"
+chapter: 8
+description: "How attention mixes information between tokens, and how transformers combine queries, keys, values, positions and masks."
+publishedAt: "2026-10-16"
+category: "Artificial Intelligence"
+tags:
+  - Transformers
+  - Attention
+  - NLP
+  - Deep Learning
+status: "published"
+nextChapterSuggestion: "From transformers to LLMs: pretraining and next-token prediction"
+---
+
+Read this sentence: "The server rejected the request because it was overloaded." To interpret "it was overloaded", you need to connect it to something earlier. A system that looked at each word in isolation would not have enough information. Embeddings provide coordinates; we still need to decide what information should travel between those coordinates.
+
+A recurrent network builds that communication by moving through a sequence and updating a state. Attention proposes a different operation: at each position, calculate a mixture of information available at other positions. That mixture changes with the content. It is neither a search for identical words nor a query to the Internet: it happens between vectors already inside the computation.
+
+Transformers made this operation a central part of their architecture. Understanding them does not require imagining a machine that "pays attention" like a person. We can follow a concrete chain instead: project vectors, calculate compatibility scores, normalise those scores, mix values, and transform the result.
+
+## Origins
+
+### Translating without squeezing everything into one note
+
+Imagine translating a paragraph after reading it once, while being allowed to keep only a fixed-length note. The more complex the paragraph, the harder it becomes to decide what to retain. This is an analogy for the bottleneck in certain encoder-decoder models: an encoder converted a sequence into a fixed representation, and a decoder generated another sequence from it.
+
+The 2014 work of Sutskever, Vinyals and Le demonstrated important results using LSTMs to learn this sequence-to-sequence transformation. The attraction was training the system jointly rather than manually assembling every translation rule. But a fixed final representation forced a great deal of information through the same point.
+
+In 2014, Bahdanau, Cho and Bengio proposed a learned alignment mechanism, presented at ICLR 2015. At each translation step, the decoder could combine different states of the input text. Attention allowed it to consult different parts of the representation instead of depending exclusively on a single summary.
+
+"Alignment" has a practical meaning here: when producing a word in the target language, it can be useful to identify which parts of the source provide information. There is no need to impose a one-to-one correspondence; several positions can contribute with different weights.
+
+## Historical evolution
+
+Attention did not begin with the transformer. It was first integrated into recurrent systems and coexisted with other approaches to processing sequences. There was not just one formula, either: compatibility could be calculated with small neural networks or with dot products.
+
+In June 2017, Vaswani and colleagues introduced *Attention Is All You Need*. Their transformer used attention, without position-aligned recurrence or convolutions, to build representations in an encoder-decoder architecture. The main experiments concerned machine translation. It was not yet the conversational assistant that often comes to mind when we hear "transformer" today.
+
+The proposal brought together several components: scaled attention, multiple heads, position-wise networks, residual connections, normalisation, and positional information. Its advantage was not merely connecting distant words. It also organised a substantial part of training into parallelisable matrix operations.
+
+This did not turn CNNs or RNNs into historical mistakes. Each architecture imposes different constraints and costs. Convolutions exploit neighbourhoods and local structure; recurrent networks offer states updated sequentially; dense attention compares many positions with one another. The choice depends on the task, the data, and the computational budget.
+
+## Technical explanation
+
+### Three views of the same vector
+
+Suppose we have a matrix X with n rows: one per token. Each row contains d numbers representing that position. In self-attention, we obtain three matrices through learned transformations:
+
+$$
+Q=XW_Q,\qquad K=XW_K,\qquad V=XW_V
+$$
+
+The W matrices are model parameters. Q contains queries; K contains keys; V contains values. Queries and keys must have the same dimension within a head so that we can compare them. Values may have a different dimension.
+
+An information-retrieval analogy is useful. The query represents what is being sought; the key describes each candidate for comparison; the value is the information that candidate contributes if it receives weight. The analogy helps, but there are not three natural-language texts hidden inside the model. There are three numerical projections.
+
+Why not use the same vector for everything? Because deciding where to look and deciding what to transport are different functions. One transformation can emphasise features useful for compatibility, while another prepares content useful to the next layer. Training learns those transformations jointly.
+
+### From scores to a mixture
+
+For a query q and a key k, we calculate their dot product and divide it by the square root of the key dimension. The result is a score, not a probability.
+
+We then apply softmax over the available positions:
+
+$$
+a_j=\frac{e^{s_j}}{\sum_r e^{s_r}}
+$$
+
+The letter s represents scores; a represents the resulting weights. Exponentiation makes the values positive, and the denominator makes them sum to one. If a score rises relative to the others, it receives more weight. An isolated score does not determine a fixed weight: the competing candidates matter.
+
+Finally, we multiply each value vector by its weight and add the results. For all queries at once, the operation is written as:
+
+$$
+Z=\operatorname{softmax}\left(\frac{QK^\top}{\sqrt{d_k}}+M\right)V
+$$
+
+The superscript T indicates transposition. M is an additive mask that can block connections. Softmax is applied row by row: each query position constructs its own distribution over the positions it is allowed to consult.
+
+The scaling factor prevents dimensionality from excessively inflating scores. Under the simplifying assumption of independent, zero-mean components with unit variance, the variance of the dot product grows with the dimension. Dividing by its square root stabilises that scale. This is a mathematical justification under particular assumptions, not a universal guarantee about every learned representation.
+
+### An example that fits on a calculator
+
+Let us use invented vectors without assigning linguistic meaning to them. The query is q = [square root of 2, 0]. The three keys are [1, 0], [0, 1], and [1, 1]. Since the dimension is two, dividing the dot products by the square root of two gives the scores [1, 0, 1].
+
+Softmax produces approximately [0.4223, 0.1554, 0.4223]. The first and third positions receive the same weight. We do not exclusively select the best candidate: we construct a continuous combination.
+
+Now assign the values [10, 0], [0, 10], and [4, 6]. The output is approximately [5.912, 4.088]. Notice the separation of responsibilities: keys determine the weights, but values are what get mixed. Changing the third value changes the output without changing those compatibility scores.
+
+This program reproduces the calculation:
+
+```python
+from math import exp, sqrt
+
+q = [sqrt(2), 0.0]
+keys = [[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
+values = [[10.0, 0.0], [0.0, 10.0], [4.0, 6.0]]
+
+scores = [
+    sum(a * b for a, b in zip(q, key)) / sqrt(len(q))
+    for key in keys
+]
+
+maximum = max(scores)
+numerators = [exp(score - maximum) for score in scores]
+total = sum(numerators)
+weights = [number / total for number in numerators]
+
+output = [
+    sum(weight * value[i] for weight, value in zip(weights, values))
+    for i in range(len(values[0]))
+]
+
+print([round(weight, 4) for weight in weights])
+print([round(number, 3) for number in output])
+```
+
+We subtract the maximum before exponentiation to improve numerical stability. This does not change softmax: numerator and denominator are multiplied by the same factor. The example calculates a single query; a matrix implementation handles many simultaneously.
+
+### What is learned and what is recalculated
+
+The projection matrices are learned during training through gradients. Attention weights, by contrast, are recalculated for each input from those matrices and the representations currently present.
+
+This distinction prevents a common misunderstanding. The model does not store a universal table saying that "server" must always look at "overloaded" with weight 0.8. It learns transformations that produce different patterns when applied to different contexts.
+
+Furthermore, the dot product between a query and a key is not necessarily symmetric between positions: the query at position A compared with the key at B can yield a different score from the query at B compared with the key at A. Query and key projections need not be identical.
+
+### Several heads, one shared representation
+
+A single head produces one mixture per position. Multiple heads calculate mixtures using different projections. Their outputs are concatenated and projected again to recover the dimension used by the rest of the block.
+
+One head may learn local relationships and another distant connections, but these roles are not normally assigned through human labels. We should not imagine a fixed roster of specialists, one for verbs and another for pronouns. That is a possible interpretation of certain observed patterns, not a specification of the architecture.
+
+The number of heads does not necessarily multiply the total width, either: it is common to divide a shared dimension among several heads. Both the size of each subspace and the cost of all their operations matter.
+
+### Order is not written into row numbers
+
+If we reorder the rows of self-attention without positional information and without a mask introducing structure, its outputs are reordered correspondingly. The operation alone does not know that one word came before another.
+
+Yet "the dog chases the cat" and "the cat chases the dog" describe different relationships. We need to supply positional information. The original transformer added sinusoidal positional signals to its input representations; it also investigated learned positions. Other ways of introducing positions exist, but they are not necessary to understand the principle.
+
+A causal mask solves a different problem: which information is allowed. When predicting the next token from a position, we block future positions. In the formula, permitted connections receive zero in M and forbidden ones receive negative infinity, giving them zero weight after softmax.
+
+If we block the third candidate in our example, the weights of the remaining two become approximately 0.7311 and 0.2689. Simply zeroing the third weight after the calculation without renormalising is not enough: changing which candidates participate changes the distribution.
+
+### Attention is not the whole block
+
+After exchanging information between positions, the block transforms each position through a feed-forward network. This network shares its parameters across positions and applies linear transformations separated by a nonlinearity. Attention communicates; the position-wise network transforms what has been communicated.
+
+Residual connections add a subblock's input to its output. This provides a direct route for preserving information and propagating gradients, rather than requiring every transformation to reconstruct everything from scratch.
+
+Layer normalisation adjusts activations using statistics across the features of each position, with learned scale and shift parameters. It does not normalise a word against every word in the corpus, nor does it require statistics over an entire batch. It helps control the numerical behaviour of training.
+
+The order of these operations varies between architectures. The original transformer placed normalisation after the residual addition; other designs place it before the subblock. "Transformer" names a family, not a single configuration file.
+
+## Practical applications
+
+### The same operation, different connections
+
+In self-attention, queries, keys, and values come from the same sequence. In cross-attention, queries come from one sequence while keys and values come from another. For example, a translation decoder can consult the representations produced by an encoder of the source text.
+
+The distinction does not require inventing a different mathematical operation. What changes is where the matrices come from. It resembles reusing a function with inputs from different modules, provided the dimensions and training semantics are compatible.
+
+To classify a document, an encoder can use context in both directions. To generate a continuation, a causal decoder can consult only the permitted prefix. These are different restrictions serving different tasks.
+
+In software, an application might involve relating a variable's use to earlier information in the code. In a sentence, it might involve combining a pronoun with clues about its referent. These are examples of relationships worth learning, not promises that any particular head will resolve them correctly.
+
+### Parallel during training, sequential during generation
+
+During training, we know the complete target sequence. We can feed it in shifted form and calculate many predictions at once, provided the mask prevents each position from accessing its future answer. This allows large matrix operations without cheating.
+
+When generating new text, we do not yet know the next token. We must produce it before using it as part of the subsequent context. The absence of recurrence within a layer does not remove this autoregressive dependency from the generation process.
+
+This distinction explains why "processes positions in parallel" does not mean "generates any complete response in a single step". Architecture, training procedure, and generation algorithm are related but different components.
+
+## Limitations and misconceptions
+
+### Connecting everything has a cost
+
+With n positions, a dense attention head considers n times n pairs. Doubling the length quadruples that number. For 4,096 positions, there are 16,777,216 scores: about 32 MiB if we materialised just that matrix using two bytes per element. Other heads, activations, and training data are not included.
+
+This calculation is illustrative: efficient implementations need not store the whole matrix. FlashAttention, introduced by Dao and colleagues in 2022, reorganises computation into blocks to reduce memory transfers and avoid materialising large intermediate results. It computes exact attention, subject to ordinary numerical-arithmetic differences; that does not make dense attention a linear-time algorithm.
+
+We can impose windows, introduce sparse connections, or change the mechanism. Each option changes costs and, sometimes, which relationships the model can use directly. Context length is not a free capability.
+
+### A weight is not a complete explanation
+
+A position receiving a large weight does not prove that it alone determined the answer. Its values, subsequent projections, residual connections, and other layers also matter. An attention matrix reveals part of the computation, not a complete causal explanation of the system.
+
+Attention does not check facts, either. It can efficiently combine incorrect information, learn spurious associations, or lose a relevant constraint among many tokens. Direct access to a position does not guarantee that training has taught the model to use it well.
+
+Finally, mixing vectors does not imply consciousness or intention. Words such as query, memory, and attention name computational functions. Analogies help us find our way, but stop helping when we mistake them for psychological descriptions.
+
+## What comes next
+
+We can now describe a transformer as a system that transforms representations through information exchange and local operations. We still need to explain why such a system can end up writing code, summarising documents, or continuing a conversation.
+
+Architecture alone does not determine these abilities. The training objective, the content of the data, scale, and evaluations also matter. The same family of blocks can be trained for different tasks.
+
+Our next step will be to study a seemingly modest task: predicting the next token. We will see how it turns text without manual annotations into training examples, how a vector output becomes probabilities over a vocabulary, and why reducing that error can produce useful capabilities without guaranteeing truthful answers.
+
+### Further reading
+
+- Sutskever, Vinyals and Le, 2014. *Sequence to Sequence Learning with Neural Networks*. An LSTM encoder-decoder predecessor: https://arxiv.org/abs/1409.3215
+- Bahdanau, Cho and Bengio, 2014; ICLR 2015. *Neural Machine Translation by Jointly Learning to Align and Translate*. Attention for consulting different parts of the input: https://arxiv.org/abs/1409.0473
+- Vaswani and colleagues, 2017. *Attention Is All You Need*. Transformer architecture and scaled dot-product attention: https://arxiv.org/abs/1706.03762
+- Ba, Kiros and Hinton, 2016. *Layer Normalization*. Normalisation using statistics within an example: https://arxiv.org/abs/1607.06450
+- Dao and colleagues, 2022. *FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness*. Memory-access-efficient attention: https://arxiv.org/abs/2205.14135
+
+## Next chapter
+
+### Proposed next chapter
+
+**Tentative title: From Transformers To LLMs: Learning To Predict The Next Token.**
+
+Now that we know how a transformer exchanges information between positions, we can ask what exercise turns it into a language model. The next chapter will follow a piece of text from its tokens to a probability distribution for its continuation. We will explain logits, how prediction error is calculated, and why the text itself provides the answers during pretraining. We will also distinguish learning patterns, memorising passages, and generalising to new combinations. We will see why a simple objective can demand complex representations without mistaking that statistical pressure for a guarantee of reasoning or truthfulness. The connection to this chapter will be direct: the transformer's output will feed the layer that scores each possible next token.
+
+1. How does text without human labels become millions of training exercises?
+2. What is the difference between a contextual representation, a logit, and a probability?
+3. Why can predicting text develop useful capabilities while also producing convincing mistakes?
+
+Let me know whether this topic interests you or whether you would prefer to take the next chapter in another direction.
