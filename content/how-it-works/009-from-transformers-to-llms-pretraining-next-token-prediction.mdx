@@ -1,0 +1,236 @@
+---
+title: "From Transformers To LLMs: Pretraining And Next-Token Prediction"
+slug: "from-transformers-to-llms-pretraining-next-token-prediction"
+chapter: 9
+description: "How next-token prediction turns a transformer into a language model, and why pretraining enables useful transfer without guaranteeing truth."
+publishedAt: "2026-10-17"
+category: "Artificial Intelligence"
+tags:
+  - Language Models
+  - Transformers
+  - Pretraining
+  - Next-Token Prediction
+status: "published"
+nextChapterSuggestion: "How LLMs Are Trained: Data, Tokenization And Scaling"
+---
+
+A transformer is a way of processing a sequence. A language model is a system that assigns probabilities to language. Bringing those ideas together produces something deceptively simple: a machine that reads a prefix and estimates what token should follow it.
+
+Consider the prefix "The server returned an HTTP". Reasonable continuations include a status code, the word "error", or a phrase describing a response. The model does not need a separate output class for every possible sentence. It needs a distribution over its next token. After choosing one token, it can repeat the operation.
+
+The interesting question is how this small interface becomes useful for writing code, explaining a document, or answering questions. The answer involves a training objective, shared representations, enormous amounts of repeated prediction, and a distinction that is easy to miss: learning a language model and building a helpful assistant are different engineering tasks.
+
+## Origins
+
+Before neural language models, a practical way to estimate a continuation was to count short sequences. An n-gram model uses a limited history: a trigram model, for example, predicts a word from the preceding two words. Counts are converted into probabilities, with smoothing methods assigning some probability to combinations absent from the training sample.
+
+This works surprisingly well, but exact histories multiply rapidly. "The service returned" and "The server returned" have similar structures, yet a purely count-based system needs machinery to share evidence between them. Longer histories make the shortage of observations more severe.
+
+Bengio and colleagues addressed this problem in their 2003 neural probabilistic language model. They jointly learned word representations and a probability model. Similar words could acquire related representations, allowing evidence from one sequence to influence predictions for another. Their model used a bounded context rather than modern transformer attention. Its importance here is the connection between representation learning and prediction, not an architectural resemblance to today's largest systems.
+
+Recurrent networks later provided another way to carry information through a sequence. Transformers offered a different route: attention lets positions combine information from other permitted positions. Neither recurrence nor convolution disappeared. These are alternative computational structures, each with useful properties and costs.
+
+Language modeling also predates the label "large language model". There is no universal parameter threshold at which a language model becomes an LLM. The name describes a family and a scale of practice more than a precise mathematical category.
+
+## Historical evolution
+
+A major practical obstacle in natural language processing was the cost of task-specific labels. A classifier might require thousands of documents annotated with categories. A question-answering system might require carefully written questions and answers. Ordinary text was much more abundant.
+
+Generative pretraining offered a way to learn from that ordinary text before adapting to a particular task. In the 2018 GPT paper, Radford and colleagues trained a transformer language model and then fine-tuned it on supervised tasks. The same broadly trained starting point could support several downstream problems with relatively limited architectural changes.
+
+Another influential 2018 approach, BERT, used a different objective. It learned to predict selected masked tokens with access to surrounding context on both sides, alongside an additional sentence-level objective in the original work. That is not ordinary left-to-right next-token prediction. The comparison matters: transformer architecture does not dictate one unique training objective.
+
+GPT-3, described in 2020 by Brown and colleagues, helped establish the practical importance of prompting a large autoregressive model with instructions or examples. Their few-shot evaluations supplied demonstrations in the input without gradient updates for each new task. Performance varied substantially across tasks, and the paper discussed limitations and evaluation contamination.
+
+These developments were overlapping research programs, not steps on an unavoidable staircase. Pretraining, supervised adaptation, masked prediction, and in-context examples solve related but different problems. Increasing scale made some approaches more useful; it did not eliminate the need to choose objectives, evaluate behavior, and design reliable applications.
+
+## Technical explanation
+
+### A sequence becomes a probability calculation
+
+First, text is converted into tokens. A token may represent a word, a word fragment, punctuation, whitespace, or a byte-derived unit, depending on the tokenizer. Token IDs are indices into a fixed vocabulary. They are not semantic labels designed by a human.
+
+For a sequence of tokens x1 through xT, probability can be decomposed by the chain rule:
+
+$$
+P(x_1,\ldots,x_T)=\prod_{t=1}^{T}P(x_t\mid x_1,\ldots,x_{t-1})
+$$
+
+The vertical bar means "conditioned on". The product says that the probability of the sequence is built from the probability of each token given its predecessors. This decomposition is a probability identity; the approximation enters when a neural network estimates the conditional distributions.
+
+A model has a finite usable context, so it may condition on only a bounded portion of the past. Special beginning and ending tokens can define sequence boundaries. An end token also allows a model to represent when a sequence finishes, rather than merely assigning probabilities to a predetermined number of positions.
+
+An autoregressive model uses earlier tokens to predict later ones. "Auto" refers to using the sequence's own preceding values; it does not mean the system acts independently in the world.
+
+### From hidden vectors to token probabilities
+
+A causal transformer converts a prefix into contextual vectors. At the final position, a vector summarizes information available for predicting the next token. Suppose that vector has d coordinates and the vocabulary contains V tokens.
+
+A learned output projection maps the d-dimensional vector into V scores, called logits. A common form is:
+
+$$
+z=hW+b
+$$
+
+Here h is a row vector, W has shape d by V, and b is a vocabulary-sized bias. Some architectures omit the bias or share output weights with the input embedding matrix. These details change the parameterization, not the purpose of the operation.
+
+Softmax turns the logits into probabilities:
+
+$$
+p_i=\frac{e^{z_i}}{\sum_{j=1}^{V}e^{z_j}}
+$$
+
+All probabilities are positive and add to one. Raising one logit relative to the others raises its token's probability. This softmax operates over vocabulary choices. It is distinct from the attention softmax, which distributes weight across positions.
+
+Imagine a toy vocabulary with just three possible continuations and logits 2, 1, and 0. The probabilities are approximately 0.665, 0.245, and 0.090. These are invented numbers for explaining the calculation, not measurements from a trained model.
+
+### Where the training labels come from
+
+Take the artificial token sequence "The server failed". For teaching purposes, assume each word is one token. A training example can align inputs and targets like this:
+
+```text
+Input:   BOS   The     server   failed
+Target:  The   server  failed   EOS
+```
+
+BOS and EOS denote beginning and end markers. At the position containing "The", the target is "server". At the position containing "server", the target is "failed".
+
+The target labels come directly from the text. This is why the method is often called self-supervised learning: the training procedure constructs supervision from the data itself. It does not mean that the data arrived without human choices. People still selected sources, wrote filters, chose representations, and designed the objective.
+
+During training, the correct preceding tokens are supplied as context. This is often called teacher forcing. A causal attention mask prevents each prediction from seeing later tokens, including its own target. Without that restriction, the network could exploit information unavailable when generating a continuation.
+
+Although the task is sequentially defined, predictions for many positions can be computed together during training because the full training sequence is already known. Each position receives a different permitted prefix through the mask. During ordinary generation, future tokens are not yet known, so the model typically produces them one after another.
+
+### Loss turns a prediction into an update
+
+For one target token, the loss is the negative natural logarithm of the probability assigned to that token:
+
+$$
+\ell=-\log p_{\mathrm{target}}
+$$
+
+If the target receives probability 0.9, the loss is small. If it receives probability 0.001, the loss is much larger. Training usually averages these losses over eligible token positions in a batch.
+
+For the toy probabilities above, suppose the correct token is the second one. Its probability is about 0.245, so the loss is about 1.408. The model was confident in the wrong alternative, and the loss records that mismatch.
+
+A useful property of softmax followed by this loss is that the gradient with respect to each logit is its predicted probability minus its target indicator. The indicator is one for the correct token and zero otherwise. Our three gradients are approximately 0.665, -0.755, and 0.090.
+
+Gradient descent therefore pushes the correct token's logit upward and the alternatives downward for this example. Backpropagation carries the signal through the output projection and transformer layers. Many shared parameters can change, so one example can affect predictions for many other contexts.
+
+Here is a numerically stable version of the toy calculation:
+
+```python
+import math
+
+logits = [2.0, 1.0, 0.0]
+target = 1
+offset = max(logits)
+weights = [math.exp(value - offset) for value in logits]
+normalizer = sum(weights)
+probabilities = [value / normalizer for value in weights]
+
+loss = math.log(normalizer) + offset - logits[target]
+gradient = [
+    probability - (1.0 if index == target else 0.0)
+    for index, probability in enumerate(probabilities)
+]
+
+print(round(loss, 6))  # 1.407606
+print([round(value, 3) for value in gradient])
+# [0.665, -0.755, 0.09]
+```
+
+Subtracting the maximum logit avoids unnecessarily large exponentials. It does not change the probabilities because the common factor cancels. Production training uses vectorized operations, automatic differentiation, and much more elaborate numerical engineering, but the local objective is recognizable here.
+
+### Why a narrow objective can teach broad patterns
+
+Predicting the continuation of text rewards many kinds of regularity. Syntax helps predict agreement. Topic helps predict vocabulary. Tracking variable names helps predict code. Following an argument helps predict its conclusion. A shared model can learn representations useful across these demands.
+
+A useful analogy is compression: a predictor that assigns high probability to the observed continuation describes that continuation with less surprise. This analogy does not establish that the model understands language in the same way a person does, nor does it prove that every learned representation corresponds to a human concept.
+
+The objective also has an important blind spot. It rewards matching text, not independently checking reality. A false claim repeated in plausible prose can be easy to predict. Conflicting sources can support incompatible continuations. A model can become better at the training objective while retaining mistakes that matter to users.
+
+### Parameters, context, and adaptation
+
+Pretraining changes the model's parameters. Fine-tuning also changes parameters, usually using a narrower dataset or objective. In ordinary inference, those parameters remain fixed while the input context changes.
+
+If a prompt supplies three examples of converting support messages into labels, the model can use those examples to infer the requested pattern. That is in-context adaptation. The examples influence activations and subsequent predictions; they do not ordinarily trigger a persistent weight update.
+
+This distinction matters operationally. Adding a fact to one conversation does not, by itself, retrain the underlying model for every future conversation. A product may store information externally and retrieve it later, but that is a separate mechanism.
+
+## Practical applications
+
+Suppose a developer wants to categorize support requests. A prompt might contain:
+
+```text
+Message: I cannot reset my password.
+Category: account
+
+Message: My invoice was charged twice.
+Category: billing
+
+Message: The page takes thirty seconds to load.
+Category:
+```
+
+A suitable language model may continue with a performance-related category. However, that category was not explicitly included in a fixed allowed set. If the application requires exactly "account", "billing", or "technical", those requirements must be represented and enforced. Plausible continuation is not an interface contract.
+
+For a controlled classification task, one option is to score candidate label continuations rather than accept unconstrained prose. Labels can consist of several tokens, so scoring must consider the whole candidate sequence and any termination convention. Another option is constrained generation. Both still require evaluation on representative requests.
+
+Code completion exposes the same machinery in a different setting. A prefix containing a function signature, imports, and comments constrains likely continuations. The model can exploit conventions learned during pretraining, but a convincing function body may still misuse an API or fail an edge case. Compilation and tests provide evidence that token probabilities cannot supply.
+
+Pretrained models are also useful as starting points. A team can adapt one to a domain or task instead of learning every representation from scratch. Whether to fine-tune, provide examples, retrieve documents, or use a simpler classifier depends on data availability, reliability requirements, latency, and cost.
+
+These applications illustrate transfer: a general prediction task creates reusable capabilities. Transfer is an empirical result to measure on the intended workload, not a promise attached to the architecture.
+
+## Limitations and misconceptions
+
+A base language model is not automatically an assistant. Given a question, it may continue with another question, imitate a transcript, or produce an answer with an unsuitable tone. Instruction tuning and other post-training methods deliberately change this behavior. They deserve their own chapter because the desired behavior exceeds the pretraining objective.
+
+A common language-model metric is perplexity:
+
+$$
+\mathrm{PPL}=e^{L}
+$$
+
+Here L is the average negative log probability per evaluated token, using natural logarithms. Lower perplexity means the model assigns greater probability to the observed evaluation text on average. An intuitive interpretation is an effective number of plausible choices, but it is not literally a count of candidates at every position.
+
+Perplexities are not directly comparable across arbitrary tokenizers or datasets. A tokenizer that splits words into smaller pieces changes the unit of measurement. More fundamentally, lower perplexity does not guarantee better factual answers, safer behavior, or correct software.
+
+Memorization and generalization can coexist. Reproducing a familiar passage does not prove that every answer is retrieved verbatim. Producing an unfamiliar sentence does not prove robust reasoning. Evaluation must also consider whether benchmark examples, or close variants, appeared in training.
+
+Generation introduces another mismatch: training commonly supplies genuine prefixes, whereas generation feeds the model its own earlier choices. A mistake can change the context and make subsequent mistakes more likely. Better training, decoding, and verification can help, but the chain-rule formulation alone does not solve this problem.
+
+Finally, assigning a high probability to a token is not the same as expressing calibrated confidence that a factual claim is true. The output distribution answers a continuation question. Treating it as a truth meter confuses the model's mathematical interface with the application's needs.
+
+## What comes next
+
+The move from transformers to LLMs combines a sequence-processing architecture with a scalable learning objective. Attention determines how information can interact. Next-token prediction supplies repeated training signals. Pretraining turns a collection of initially unhelpful parameters into a reusable predictor, while later adaptation shapes how that predictor is used.
+
+That description leaves the largest engineering questions open. Which text should enter the training set? How should repeated or low-quality material be handled? What counts as one token? How should a fixed computing budget be divided between model size and training duration?
+
+Those decisions affect both capability and cost. They also explain why "make the model bigger" is an incomplete recipe. The next chapter will move from the prediction mechanism to the training system that makes it practical.
+
+### Further reading
+
+- Bengio et al., "A Neural Probabilistic Language Model" (2003). The original paper connecting distributed word representations with probability estimation: https://www.jmlr.org/papers/v3/bengio03a.html
+
+- Radford et al., "Improving Language Understanding by Generative Pre-Training" (2018). Transformer language-model pretraining followed by supervised adaptation: https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf
+
+- Devlin et al., "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding" (2018). A contrasting pretraining objective using masked tokens: https://arxiv.org/abs/1810.04805
+
+- Brown et al., "Language Models are Few-Shot Learners" (2020). Large-scale autoregressive modeling and evaluation through examples supplied in context: https://arxiv.org/abs/2005.14165
+
+## Next chapter
+
+### Proposed next chapter
+
+**How LLMs Are Trained: Data, Tokenization And Scaling**
+
+A training objective tells us what a model should improve, but it does not tell us how to build the training run. The next chapter will follow text from collection to tokenized batches, examining filtering, deduplication, document boundaries, and the consequences of tokenizer design. We will then connect model size, token count, and computing budget, explaining what scaling studies can tell us and where their conclusions depend on experimental conditions. A concrete example will show why adding parameters without enough training data can waste resources, while indiscriminately adding text can introduce other problems. This builds directly on today's loss function: we will investigate which examples supply that loss, how often they appear, and how efficiently their gradients become learning.
+
+1. How do filtering and deduplication change what a model learns?
+2. Why can two tokenizers make the same text cost different amounts to process?
+3. How should model size and training token count share a fixed computing budget?
+
+Would you like to continue with this topic, or would you prefer a different direction?
