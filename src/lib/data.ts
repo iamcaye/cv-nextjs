@@ -46,6 +46,23 @@ export const projects: Project[] = [
     },
   },
   {
+    name: 'Run',
+    description:
+      'A mobile-first training tracker that builds an adaptive plan towards a race goal and syncs Apple Watch workouts.',
+    image: '/run.png',
+    tags: ['Next.js', 'TypeScript', 'PostgreSQL', 'Drizzle', 'Better Auth'],
+    highlights: [
+      'Deterministic plan generator with phased periodization',
+      'Apple Watch sync via Health Auto Export',
+      'Training load (ACWR), race prediction and weekly check-ins',
+      'Property-based and end-to-end test suites',
+    ],
+    links: {
+      demo: 'https://run.caye.tv',
+      github: 'https://github.com/iamcaye/run',
+    },
+  },
+  {
     name: 'Nottes',
     description: 'A local-first note-taking application with CLI and TUI interfaces.',
     tags: ['Rust', 'SQLite', 'Ratatui', 'Clap'],
