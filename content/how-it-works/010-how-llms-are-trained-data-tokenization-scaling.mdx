@@ -1,0 +1,242 @@
+---
+title: "How LLMs Are Trained: Data, Tokenization And Scaling"
+slug: "how-llms-are-trained-data-tokenization-scaling"
+chapter: 10
+description: "How documents become token batches and parameter updates, and how data choices, tokenization and compute budgets shape LLM training."
+publishedAt: "2026-10-19"
+category: "Artificial Intelligence"
+tags:
+  - LLM Training
+  - Tokenization
+  - Training Data
+  - Scaling Laws
+status: "published"
+nextChapterSuggestion: "How LLMs Generate Text: Inference, Context And Sampling"
+---
+
+Imagine receiving a budget for training a language model. You can buy more accelerators, enlarge the network, or let it process more text. None of those choices tells you whether the text is useful, whether the tokenizer represents it efficiently, or whether the training run can recover from a failed machine.
+
+The previous chapter explained the local learning signal: predict a token, measure the error, and backpropagate. This chapter follows the machinery around that signal. A training run turns a selected collection of documents into token batches and then into billions of small parameter updates.
+
+The central problem is allocation. Every repeated paragraph occupies capacity in the training stream. Every extra token consumes computation. Every additional parameter needs enough evidence to become useful. Training an LLM means coordinating these decisions, rather than simply feeding the internet into a sufficiently large neural network.
+
+## Origins
+
+Language-model training inherited two older engineering traditions. Statistical language modeling depended on carefully assembled corpora: collections of text intended to represent some distribution of language. Neural-network training depended on optimization procedures that repeatedly adjusted parameters using sampled examples.
+
+Combining the traditions created a difficult question: what should count as one example? Documents vary enormously in length. Words have uneven frequencies. Some languages mark boundaries with spaces; others do not. Source code adds identifiers, indentation, punctuation, and unusual strings.
+
+A vocabulary containing every possible word is impractical. Names change, identifiers are invented, and compound words can be arbitrarily varied. A word-level model either needs an unknown-word mechanism or a way to represent unfamiliar strings through smaller units.
+
+Character-based representations avoid an enormous word vocabulary, but make sequences longer. A model must traverse more positions to read the same paragraph. Subword tokenization offered a compromise: represent frequent pieces compactly while decomposing less familiar material.
+
+In 2016, Sennrich, Haddow, and Birch demonstrated a subword approach using byte-pair encoding for neural machine translation. Their objective was handling rare and unseen words, not designing a universal tokenizer for every later LLM. Nevertheless, the underlying trade-off remains central: vocabulary design decides how text becomes computational work.
+
+## Historical evolution
+
+As language models expanded, researchers increasingly studied predictable relationships between resources and validation loss. A validation set is text withheld from parameter updates, used to estimate how the model performs beyond its training examples.
+
+Kaplan and colleagues reported empirical scaling relationships in 2020. Across their experiments, loss followed approximate power-law trends with model size, data, and compute. Their compute-allocation analysis favored relatively large models trained for comparatively limited durations. This encouraged treating training plans as measurable resource-allocation problems.
+
+In 2022, Hoffmann and colleagues revisited the balance using different experimental coverage and fitting procedures. Their Chinchilla study concluded that many prominent models had too few training tokens for their size under the study's compute-optimal criterion. Within that setting, model size and token count should grow approximately together.
+
+These findings are not contradictory laws of nature. They are empirical estimates obtained under particular architectures, datasets, optimization choices, and measurement procedures. Changing those conditions can change the most useful allocation.
+
+Meanwhile, data preparation became an increasingly visible research topic. Lee and colleagues' 2022 deduplication study showed that removing repeated material could reduce memorized output and improve evaluated performance in their experiments. The result challenged the assumption that more collected text necessarily means more useful information.
+
+The history therefore branches in several directions: better representations, better data, larger models, more efficient hardware, and better experiments. None makes the others irrelevant. A larger model can still be trained on a poorly chosen distribution, while an excellent corpus can still be wasted by an unstable run.
+
+## Technical explanation
+
+### The dataset is a distribution you construct
+
+A raw text collection is not yet a training dataset. It may contain extraction failures, navigation menus, copied articles, repeated documentation, spam, and documents outside the intended languages or domains.
+
+A preparation pipeline commonly extracts readable content, filters unwanted material, removes duplicates, assigns metadata, and divides sources into training and evaluation partitions. The exact order matters. For example, splitting documents first and deduplicating each partition independently can leave closely related copies on both sides.
+
+Exact deduplication identifies identical content, often after a defined normalization step. Near-duplicate detection searches for substantial overlap despite small edits. Neither is perfect: aggressive normalization can collapse meaningfully different documents, while weak matching leaves repeated material behind.
+
+Filtering also embeds preferences. A heuristic favoring formal prose may discard useful conversations or dialects. A code-oriented collection can improve programming coverage while changing the overall language distribution. There is no context-free quality score that captures every intended use.
+
+Suppose a mixture samples 60 percent general prose, 25 percent code, and 15 percent technical documentation by tokens. Those are design choices, not properties of the original collection. Altering the weights changes how frequently each domain contributes gradients.
+
+Evaluation should therefore include the intended workloads, not just one blended score. A lower aggregate loss can hide deterioration in a smaller but important domain.
+
+### Unique data and processed tokens differ
+
+If a dataset contains ten billion tokens and the model processes it three times, the training run has consumed thirty billion token presentations. It has not seen thirty billion distinct tokens of source material.
+
+An epoch is approximately one pass through a dataset, although streaming mixtures and changing sampling policies can make the concept less tidy. Repeated exposure can still help learning. The point is to distinguish additional optimization from additional information.
+
+Duplicates introduce another form of repetition. If one document appears a thousand times, sampling uniformly over collected documents gives its content a thousand opportunities to influence the model. This may reflect publishing infrastructure rather than genuine importance.
+
+Memorization is not automatically eliminated by deduplication, and useful recurring patterns should not all be removed. Function signatures, standard phrases, and quotations can recur legitimately. The goal is to understand and control repetition, not to pretend that language consists entirely of unique strings.
+
+### How byte-pair encoding makes pieces
+
+A simplified byte-pair encoding procedure starts with small units and repeatedly merges a frequent adjacent pair. Training the tokenizer means learning these merge rules and the resulting vocabulary. Training the language model later means learning neural parameters over the token IDs produced by those rules.
+
+Here is an intentionally tiny example:
+
+```text
+Starting pieces:
+l o w
+l o w e r
+
+Merge l + o:
+lo w
+lo w e r
+
+Merge lo + w:
+low
+low e r
+```
+
+Real implementations specify initial symbols, boundary conventions, normalization, tie-breaking, and stopping rules. Some operate from byte-level units; others begin with characters or other predefined pieces. Not every subword tokenizer is BPE.
+
+After vocabulary construction, tokenization applies the learned rules to input text. The pieces are mapped to integers. The integer assigned to a piece is an address in a vocabulary table; its numerical proximity to another ID does not encode semantic similarity.
+
+A byte-based fallback can represent arbitrary byte sequences without a conventional unknown-word token. However, representability does not imply efficiency. A rare name or unfamiliar writing system may require many more tokens than a common English expression.
+
+Vocabulary size also has costs. More entries enlarge the embedding and output structures unless architectural choices compensate. Fewer entries often produce longer sequences. Tokenization balances several expenses rather than maximizing compression at any price.
+
+### A token budget is not a word budget
+
+Suppose two hypothetical tokenizers encode the same document as 1,000 and 1,400 tokens. Under a fixed context limit, the second leaves room for less of the document. Under a fixed processed-token budget, it also allows fewer such documents to pass through training.
+
+These numbers are illustrative, not measurements of named tokenizers. Actual comparisons require running the exact tokenizer versions on representative text, including all preprocessing and special tokens.
+
+Tokenization can affect apparent evaluation results too. Average loss per token uses the tokenizer's chosen unit. Comparing raw per-token perplexity across incompatible tokenizations can therefore be misleading. Comparisons based on a shared textual unit, such as bytes, can help, provided their assumptions and calculations are explicit.
+
+For developers, there is another practical consequence: renaming identifiers or changing whitespace can alter token boundaries. A tokenizer does not necessarily see source code in the same units as a parser.
+
+### From documents to batches
+
+Accelerators work efficiently on regularly shaped tensors. Documents are irregular. Training systems therefore form sequences of a selected length, either padding shorter examples or packing text into fuller sequences.
+
+Padding fills unused positions with designated values, and loss masks exclude positions that should not contribute to the objective. Packing reduces wasted space, but requires a boundary policy.
+
+An end-of-document token marks a transition; it does not by itself block attention. If separate documents should remain isolated within a packed sequence, the attention mask must enforce that isolation. Other designs deliberately permit attention across packed boundaries while marking them. These are different training distributions.
+
+Each eligible position predicts its following token. A batch combines many such positions. Gradient accumulation can combine several smaller batches before an optimizer update when memory cannot hold the desired effective batch at once.
+
+If each sequence has S tokens, each device processes B sequences per microbatch, W devices cooperate through data parallelism, and A accumulation steps precede an update, an approximate token count per update is:
+
+$$
+T_{\mathrm{update}}=S B W A
+$$
+
+This counts scheduled positions. Padding, excluded targets, and boundary handling can make the number of loss-bearing tokens smaller. The formula also assumes that the data-parallel workers process different examples.
+
+### The optimizer and the machines
+
+After backpropagation, an optimizer uses gradients to update parameters. Adaptive optimizers maintain additional state, so training memory contains much more than the weights alone: gradients, optimizer statistics, activations, and temporary buffers all matter.
+
+Mixed-precision training uses different numerical formats for different operations or stored values. This can reduce memory traffic and improve throughput, but numerical stability still requires care. Smaller formats do not make every calculation interchangeable.
+
+Data parallelism replicates model computation across workers processing different data, then combines gradient information. Tensor parallelism divides operations or tensors across devices. Pipeline parallelism assigns groups of layers to different stages. Large runs may combine these strategies.
+
+Communication and idle time can dominate if the division is poor. A theoretical operation count does not tell you how many useful operations the hardware completes per second.
+
+Checkpoints preserve parameters and enough associated state to resume meaningfully: often optimizer state, training position, scheduler state, and random-number information. A weights-only export can be useful for inference without being an adequate recovery checkpoint.
+
+### A first approximation to compute
+
+For a conventional dense transformer training run, a commonly used rough estimate is:
+
+$$
+C\approx 6ND
+$$
+
+C is the number of floating-point operations, N is the parameter count under the estimate's counting convention, and D is the number of processed training tokens. The coefficient approximates forward and backward computation.
+
+This is a planning approximation, not a universal billing formula. Long contexts, attention costs, vocabulary projections, recomputation, and architectural details can materially change the total. Sparse models require particular care because total stored parameters and active computation differ.
+
+Consider two hypothetical plans:
+
+```python
+plans = [
+    ("larger", 10_000_000_000, 100_000_000_000),
+    ("longer", 5_000_000_000, 200_000_000_000),
+]
+
+for name, parameters, tokens in plans:
+    operations = 6 * parameters * tokens
+    print(name, f"{operations:.1e}")
+# larger 6.0e+21
+# longer 6.0e+21
+```
+
+Both plans have the same estimated training computation. That does not establish equal validation loss, memory requirements, throughput, or inference cost. It simply makes the allocation question visible: double the parameters and halve the tokens, or do the reverse.
+
+### What scaling fits actually say
+
+A useful schematic model separates loss contributions associated with finite capacity and limited data:
+
+$$
+L(N,D)=E+\frac{a}{N^{\alpha}}+\frac{b}{D^{\beta}}
+$$
+
+L is validation loss. E represents a fitted floor within this model, while a, b, alpha, and beta are fitted positive constants. Larger N or D reduces its corresponding term, with diminishing returns.
+
+This equation is a summary of observed behavior, not a proof about all language models. Its fitted floor should not be interpreted as a universal, directly measured irreducible uncertainty of language.
+
+Under a fixed compute budget, N and D cannot both grow freely. Increasing one leaves fewer resources for the other. A scaling fit helps identify promising experiments along that constraint.
+
+It cannot certify that the selected model will answer medical questions correctly, write secure code, or behave helpfully. Those outcomes require their own evaluations and often additional training.
+
+## Practical applications
+
+A realistic training proposal should begin with a target distribution and evaluation plan. If the goal is a code model for a particular ecosystem, a generic prose benchmark is insufficient. Held-out repositories, carefully separated by relevant relationships, provide a more useful test of transfer.
+
+Small pilot runs can compare data mixtures, tokenizers, and optimization settings before a large commitment. Logging should connect each result to a dataset version, tokenizer version, configuration, and checkpoint. Otherwise, an improvement cannot be traced or reproduced reliably.
+
+For a fixed collection, tokenize representative samples before estimating cost. Measure sequence lengths by domain and language. A blend that appears balanced by document count may be heavily skewed by token count because documents have very different lengths.
+
+Validation should also run during training. A falling training loss with worsening held-out behavior can indicate overfitting or a distribution mismatch. Sudden loss spikes may point to numerical problems, a problematic batch, or other faults; the curve alone does not diagnose the cause.
+
+Finally, include serving in the budget. A smaller model trained on more tokens can cost more to train than an early-stopped alternative while costing less per request. Which plan is economically preferable depends on expected usage, latency requirements, and measured quality.
+
+## Limitations and misconceptions
+
+Compute-optimal training is defined relative to an objective and a budget. It does not automatically minimize lifetime cost once deployment is included. Nor does it imply that one published tokens-per-parameter ratio is a permanent rule.
+
+Data quality is also not a single axis. Removing repetition, improving extraction, changing domain balance, and excluding evaluation overlap solve different problems. Their effects can interact, so a successful recipe in one setting needs testing before transfer.
+
+Publicly available text is not automatically appropriate for every use. Data governance, provenance, and permission decisions belong in dataset construction. They cannot be recovered merely by inspecting a final weight file.
+
+Scaling relationships are most reliable near the experimental regime that supported them. Extrapolation can fail when a run changes context length, architecture, data distribution, or optimization behavior. Smooth loss trends also do not guarantee smooth changes in every downstream capability.
+
+Most importantly, additional training optimizes the supplied objective on the supplied distribution. It can improve a predictor without providing an independent mechanism for verifying facts. Better inputs and more computation matter, but they do not turn likelihood into truth.
+
+## What comes next
+
+Training creates parameters. Using them requires another system: an inference engine that accepts a prompt, manages the context, computes token probabilities, and decides which token to emit.
+
+The training and serving problems overlap, but their bottlenecks differ. Training can evaluate many known target positions together. Generation normally waits for each selected token before continuing. Memory movement, cached attention information, and output-length choices therefore become central.
+
+We have followed documents into gradients. Next we will follow a prompt into an answer, separating the model's probability distribution from the decoding procedure that turns it into visible text.
+
+### Further reading
+
+- Sennrich, Haddow, and Birch, "Neural Machine Translation of Rare Words with Subword Units" (2016). The original subword-BPE study discussed here: https://aclanthology.org/P16-1162/
+
+- Kaplan et al., "Scaling Laws for Neural Language Models" (2020). Empirical relationships between model size, data, compute, and loss: https://arxiv.org/abs/2001.08361
+
+- Hoffmann et al., "Training Compute-Optimal Large Language Models" (2022). The Chinchilla analysis of model size and training-token allocation: https://arxiv.org/abs/2203.15556
+
+- Lee et al., "Deduplicating Training Data Makes Language Models Better" (2022). Experimental evidence about repetition, memorization, and evaluation: https://aclanthology.org/2022.acl-long.577/
+
+## Next chapter
+
+### Proposed next chapter
+
+**How LLMs Generate Text: Inference, Context And Sampling**
+
+Training explains how a model acquires its parameters; inference explains how those parameters become an answer. The next chapter will follow a prompt through tokenization, the initial forward pass, and repeated token generation. We will distinguish prefill from decoding, explain what the key-value cache stores, and show why long contexts and long answers create different costs. A small probability distribution will make greedy decoding, temperature, and nucleus sampling concrete without treating randomness as intelligence. We will also examine stopping conditions and explain why the same model can produce different answers under different decoding settings. This connects directly to today's resource accounting: the model trained within one compute budget must now operate within a memory, latency, and throughput budget.
+
+1. What is the difference between processing a prompt and generating its continuation?
+2. How does a key-value cache reduce repeated work, and what memory does it consume?
+3. How do temperature and nucleus sampling change the text a model produces?
+
+Would you like to continue with this topic, or would you prefer a different direction?
