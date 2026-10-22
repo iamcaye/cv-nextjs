@@ -1,0 +1,181 @@
+---
+title: "From Language Models To Assistants: Instruction Tuning, RLHF And Alignment"
+slug: "from-language-models-to-assistants-instruction-tuning-rlhf-alignment"
+chapter: 12
+description: "How demonstrations and preference feedback turn a pretrained language model into an assistant, and what alignment methods can and cannot guarantee."
+publishedAt: "2026-10-22"
+category: "Artificial Intelligence"
+tags:
+  - Instruction Tuning
+  - RLHF
+  - Preference Optimization
+  - AI Alignment
+status: "published"
+nextChapterSuggestion: "Beyond Text: Multimodality, Image Generation And Diffusion"
+---
+
+A pretrained language model has learned an impressive but underspecified skill: continue a sequence in a statistically plausible way. Give it a product review and it may continue the review. Give it a question and it may answer, quote another question, or imitate a forum thread. None of those continuations is inherently wrong under next-token prediction.
+
+An assistant needs a narrower behavioral contract. It should recognize instructions, choose a useful response format, avoid obvious harm, and express uncertainty when evidence is weak. Post-training is the family of processes used to shape those tendencies after broad pretraining.
+
+This chapter follows three important stages: supervised instruction tuning, learning from preference comparisons, and optimizing the model toward those preferences. The methods have made language models much easier to use, but the word alignment deserves care. A model can align well with an evaluation protocol while remaining wrong, manipulable, or poorly suited to a different group of users.
+
+## Origins
+
+The mismatch begins with the pretraining objective. A model trained to minimize next-token loss learns from whatever continuations occur in its data. That objective rewards prediction, not obedience. Helpful answers may be present, but so are arguments, advertisements, fiction, mistakes, and conversations in which nobody follows an instruction.
+
+Prompting can steer this predictor without changing its parameters. A few examples in the context can establish a temporary pattern, but they consume context and depend on wording. Researchers therefore explored changing the model itself with examples of tasks described in natural language.
+
+Instruction tuning is supervised fine-tuning on pairs consisting of an instruction and a desired response. The desired response may be written by a human, derived from a labeled dataset, or produced and filtered through another process. The loss is still next-token cross-entropy, but the training distribution has changed from arbitrary documents to demonstrations of intended interaction.
+
+In 2021, the FLAN study instruction-tuned a pretrained model on more than sixty tasks expressed through natural-language templates. It reported improved zero-shot performance on task types excluded from fine-tuning. This did not prove that one recipe generalizes to every task; it showed that diversity of instructions could teach a useful interface to capabilities acquired during pretraining.
+
+Demonstrations leave an important question unanswered. For many prompts there is no single ideal response. Two answers may both be correct but differ in clarity, tone, detail, or caution. Writing one canonical target forces the model to imitate that wording. Preference comparisons offer a weaker signal: given two candidates, which is better?
+
+## Historical evolution
+
+Learning from human feedback predates conversational LLMs. The modern pipeline combined established ideas from supervised learning, preference modeling, and reinforcement learning with large pretrained transformers.
+
+The 2022 InstructGPT work presented an influential three-stage implementation. First, labelers wrote demonstrations for supervised fine-tuning. Second, they ranked several model responses, and those comparisons trained a reward model. Third, reinforcement learning optimized the language model against that learned reward while penalizing excessive movement away from a reference policy.
+
+The paper reported that, on its prompt distribution, human evaluators preferred responses from a 1.3-billion-parameter InstructGPT model to those from the much larger base GPT-3 model. The result is significant but specific: preference was measured using particular prompts, guidelines, labelers, and candidate models. It does not establish a universal conversion between parameter count and usefulness.
+
+Reinforcement learning from human feedback, or RLHF, became a common name for this family of pipelines. The name can obscure several distinct systems: the people and rubric producing comparisons, the reward model approximating those judgments, and the policy optimizer exploiting that approximation.
+
+Subsequent work explored alternatives. Constitutional AI used written principles to guide self-critiques and revisions, followed by preferences generated with AI assistance. Direct Preference Optimization, introduced in 2023, derived a classification-style objective that trains directly on preferred and rejected responses without fitting a separate reward model and running an online reinforcement-learning loop.
+
+These approaches did not form a clean sequence in which each replacement made its predecessor obsolete. Organizations combine supervised examples, rejection sampling, human or AI preferences, reinforcement learning, direct preference methods, safety filters, and evaluation according to their constraints.
+
+## Technical explanation
+
+### Stage one: supervised instruction tuning
+
+Let $x$ be an instruction and $y$ a desired response. Supervised fine-tuning adjusts model parameters to increase the probability of the response tokens conditioned on the instruction:
+
+$$
+\mathcal{L}_{\mathrm{SFT}}=-\sum_{t=1}^{|y|}\log \pi_{\theta}(y_t\mid x,y_{<t})
+$$
+
+The notation $\pi_{\theta}$ treats the language model as a policy: given a prefix, it returns a probability distribution over the next token. Usually the loss is masked so that only response tokens contribute, although implementations differ.
+
+Suppose the instruction is “Explain a database index to a junior developer.” A demonstration might compare the index to a carefully maintained lookup structure, then explain the cost of additional storage and slower writes. Fine-tuning does not store a symbolic rule saying “be pedagogical.” It raises the likelihood of token patterns associated with useful answers across the supplied examples.
+
+Dataset design therefore matters. If every answer begins with the same phrase, the model may learn that superficial habit. If demonstrations always contain lengthy explanations, short-answer capability may deteriorate. If difficult questions receive confident guesses, the model learns the wrong uncertainty behavior.
+
+Instruction tuning can expose existing capabilities more reliably, but it can also add task-specific knowledge when examples contain new information. Separating elicitation from knowledge acquisition is usually an empirical question, not something the training objective reveals by itself.
+
+### Stage two: collect comparisons
+
+For a prompt $x$, the current model generates candidate responses. A reviewer chooses a preferred response $y_w$ over a rejected response $y_l$. The subscripts mean winner and loser; they do not claim that either answer is objectively correct.
+
+Comparisons are often easier than writing an ideal answer from scratch. They also capture qualities that are difficult to encode as automatic metrics. A reviewer can prefer an answer because it is more accurate, direct, safe, or appropriately detailed.
+
+But the label combines those properties into one judgment. If the preferred answer is longer and more correct, the comparison alone does not reveal which feature caused the choice. Rubrics, reviewer training, randomized presentation, and quality audits reduce ambiguity without eliminating it.
+
+The prompt distribution is equally important. Feedback collected mostly on coding questions will not fully specify behavior for medicine, politics, or emotional support. Preference data is a sample of desired behavior, not a complete constitution for every future situation.
+
+### Stage three: fit a reward model
+
+In a classic RLHF pipeline, a reward model assigns a scalar score $r_{\phi}(x,y)$ to a prompt-response pair. It can be trained with a Bradley-Terry style probability that the winner should outrank the loser:
+
+$$
+P(y_w \succ y_l\mid x)=\sigma\left(r_{\phi}(x,y_w)-r_{\phi}(x,y_l)\right)
+$$
+
+Here $\sigma$ is the logistic sigmoid. Training minimizes the negative log-probability of observed preferences. Only score differences matter for this comparison; adding the same constant to both scores changes nothing.
+
+The scalar is best understood as a learned predictor of labels under a data-collection procedure. Calling it “human value” gives it far too much authority. It can inherit inconsistent rubrics, annotation biases, and shortcuts. For example, if polished prose often wins in the data, the model may reward polish even when it conceals a factual error.
+
+### Stage four: optimize the policy
+
+The policy is then adjusted to produce responses with higher predicted reward. In InstructGPT, this stage used Proximal Policy Optimization. A simplified objective is:
+
+$$
+\max_{\theta}\;\mathbb{E}_{y\sim\pi_{\theta}(\cdot\mid x)}\left[r_{\phi}(x,y)-\beta\,D_{\mathrm{KL}}\left(\pi_{\theta}\,\|\,\pi_{\mathrm{ref}}\right)\right]
+$$
+
+The first term rewards responses favored by the learned model. The second penalizes divergence from a reference policy, usually related to the supervised model. The coefficient $\beta$ controls the trade-off.
+
+This penalty matters because optimization searches for outputs that score well, including outputs unlike those used to train the reward model. Without restraint, the policy can exploit errors in its evaluator. This is a form of reward hacking: achieving a high proxy score without achieving the intended goal.
+
+The KL term is a guardrail, not a proof. Too much constraint can prevent useful adaptation; too little can permit degenerate behavior. Teams monitor reward, divergence, response quality, and separate evaluations during training.
+
+### Direct preference optimization
+
+DPO removes the explicit reward-model and online RL stages. It compares how strongly the trainable policy favors the winner over the loser, relative to a fixed reference policy. One form of its loss is:
+
+$$
+\mathcal{L}_{\mathrm{DPO}}=-\log\sigma\left(\beta\left[\log\frac{\pi_{\theta}(y_w\mid x)}{\pi_{\mathrm{ref}}(y_w\mid x)}-\log\frac{\pi_{\theta}(y_l\mid x)}{\pi_{\mathrm{ref}}(y_l\mid x)}\right]\right)
+$$
+
+The objective increases the relative probability of the preferred response while anchoring the comparison to the reference. It is simpler operationally because it can train on a fixed preference dataset like ordinary fine-tuning.
+
+Simpler does not mean assumption-free. Results still depend on preference quality, prompt coverage, the reference model, the value of $\beta$, and whether the offline candidate responses resemble outputs produced after optimization.
+
+### What alignment means here
+
+In this engineering context, alignment often means making outputs better match specified intentions or constraints. Those specifications may include helpfulness, harmlessness, honesty, style, legal rules, or product policy. These goals can conflict.
+
+A refusal can reduce one risk while blocking a legitimate request. A concise answer can be useful to an expert and inadequate for a beginner. Honest uncertainty can frustrate a user who wants a decisive recommendation. There is no single scalar that resolves every trade-off independently of context.
+
+Post-training is therefore closer to configuring a sociotechnical system than installing a universal moral module. The model, dataset, rubric, reviewers, evaluators, inference settings, and surrounding application all influence observed behavior.
+
+## Practical applications
+
+Consider a support assistant for a developer platform. Supervised demonstrations can teach it to ask for relevant logs, provide commands in the correct shell, and separate diagnosis from destructive remediation. Preference comparisons can favor answers that are concise, technically justified, and explicit about uncertainty.
+
+The evaluation suite should decompose those qualities. One test checks whether commands are syntactically valid. Another checks whether an answer cites available documentation. A safety test verifies that destructive commands require confirmation. Human reviewers can judge clarity, but automated execution can catch errors that fluent prose hides.
+
+Data versioning is essential. Each training example should be traceable to a source, policy version, and review process. Otherwise a behavior change cannot be connected to the evidence that produced it.
+
+Preference collection also benefits from disagreement. If reviewers consistently disagree on a prompt, forcing a majority label may erase a real ambiguity. The system might need user-controlled verbosity, a domain-specific policy, or multiple acceptable behaviors rather than one global answer.
+
+Production feedback should not flow directly into training without review. User ratings are affected by answer length, confirmation bias, task difficulty, and whether the user noticed a subtle error. They are useful signals, but they are not clean ground truth.
+
+Finally, inference remains part of the product. A well-trained assistant can still behave differently under another system prompt, context, tool result, or sampling policy. Post-training reshapes the distribution described in the previous chapter; decoding and application logic still determine which part of that distribution reaches the user.
+
+## Limitations and misconceptions
+
+RLHF does not make a model truthful by construction. A reviewer may prefer a confident false answer over a hesitant correct one, especially in a specialized domain. The reward model can reproduce that preference, and the policy can optimize it.
+
+Instruction following is not the same as safety. Better obedience can make benign tasks easier while also making harmful requests easier to execute. Safety training adds constraints, but false refusals and jailbreaks show that behavioral boundaries remain imperfect.
+
+Human feedback is not a single democratic signal. Who selects reviewers, writes guidelines, resolves disagreements, and chooses prompts determines which preferences enter the dataset. Cultural and situational variation cannot be removed merely by collecting more labels from the same process.
+
+Preference optimization can encourage sycophancy: agreeing with a user's stated belief because agreement is often rewarded. It can also produce verbosity, templated disclaimers, or reward-model-specific phrases. These are signs that a proxy has become part of the target.
+
+Benchmarks can be gamed or contaminated, and average scores hide rare severe failures. Evaluation should include adversarial prompts, distribution shifts, expert review, and monitoring after deployment. Even then, absence of observed failure is not proof of absence.
+
+Finally, “aligned” is never a complete model description. Aligned to which users, which rules, which environment, and which failure costs? A responsible claim names the objective and evidence rather than treating alignment as a permanent property.
+
+## What comes next
+
+Post-training turns a general predictor into a more legible interface. It teaches the model how to respond, not just how text tends to continue. Yet everything in this chapter has remained inside a sequence of text tokens.
+
+Many modern systems accept images, audio, or video, and some generate pixels rather than words. This requires new representations and training objectives. A photograph is not naturally an ordered sentence, and high-resolution generation cannot efficiently choose from a vocabulary of every possible image.
+
+The next chapter will connect language models to multimodal encoders and then examine diffusion models: systems that learn to reverse a gradual noising process. The transition is not a replacement of text models, but an expansion of the kinds of data a model can condition on and produce.
+
+### Further reading
+
+- Wei et al., "Finetuned Language Models Are Zero-Shot Learners" (2021). Instruction tuning across diverse tasks: https://arxiv.org/abs/2109.01652
+
+- Ouyang et al., "Training Language Models to Follow Instructions with Human Feedback" (2022). The supervised, reward-model, and PPO stages used for InstructGPT: https://arxiv.org/abs/2203.02155
+
+- Bai et al., "Constitutional AI: Harmlessness from AI Feedback" (2022). Self-critique, written principles, and reinforcement learning from AI feedback: https://arxiv.org/abs/2212.08073
+
+- Rafailov et al., "Direct Preference Optimization: Your Language Model Is Secretly a Reward Model" (2023). Direct optimization from preference pairs: https://arxiv.org/abs/2305.18290
+
+## Next chapter
+
+### Proposed next chapter
+
+**Beyond Text: Multimodality, Image Generation And Diffusion**
+
+A language model maps token sequences to token probabilities, but modern AI systems also interpret photographs, connect text with images, and generate visual content. The next chapter will explain how multimodal models create shared or connected representations across different data types, then follow the history from contrastive image-text learning to generative diffusion. We will build an intuitive and mathematical account of forward noising, learned denoising, latent diffusion, and text conditioning. We will also separate diffusion from autoregressive generation and examine practical concerns such as sampling cost, prompt adherence, dataset provenance, and visual errors. This extends the post-training story: preferences can shape how a system behaves, while multimodal architecture changes what information it can receive and what kind of artifact it can produce.
+
+1. How can text and images be represented so that relationships between them become learnable?
+2. Why does learning to remove noise produce convincing new images?
+3. What do latent diffusion and text conditioning change about quality, cost, and control?
+
+Would you like to continue with this topic, or would you prefer a different direction?
