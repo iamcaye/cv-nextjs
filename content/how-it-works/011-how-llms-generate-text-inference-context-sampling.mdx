@@ -1,0 +1,223 @@
+---
+title: "How LLMs Generate Text: Inference, Context And Sampling"
+slug: "how-llms-generate-text-inference-context-sampling"
+chapter: 11
+description: "How prompts become generated tokens through prefill, key-value caching and decoding, and why sampling and context change serving behavior."
+publishedAt: "2026-10-20"
+category: "Artificial Intelligence"
+tags:
+  - LLM Inference
+  - Sampling
+  - KV Cache
+  - Model Serving
+status: "published"
+nextChapterSuggestion: "From Language Models To Assistants: Instruction Tuning, RLHF And Alignment"
+---
+
+You press Enter, wait for a moment, and then watch an answer appear a few characters at a time. The interface makes this look like a person typing. Underneath, an inference engine is repeatedly running a numerical program and converting its output into token choices.
+
+Training has already produced the parameters. During ordinary generation, those parameters remain fixed. What changes is the sequence: the prompt becomes a longer prompt as each selected token joins it. The model supplies scores; a decoding procedure decides what to do with them.
+
+This separation explains several familiar surprises. The same model can answer differently on two attempts. A longer prompt can delay the first visible output. A long conversation can consume substantial memory even when the model's weights have not changed. To understand these behaviors, we need to follow one request through the serving system.
+
+## Origins
+
+Text generation predates modern LLMs. A probabilistic language model can generate by choosing a continuation, appending it, and repeating. Earlier systems performed that loop using short context windows or recurrent states. The loop's basic logic survived dramatic changes in the predictor inside it.
+
+Recurrent networks carry a state forward through a sequence. A transformer instead constructs contextual representations through attention. In a causal transformer, each position can use permitted earlier positions while remaining unable to inspect future tokens.
+
+The 2017 transformer paper established an influential architecture for sequence transduction, originally demonstrated with an encoder and a decoder for translation. A decoder-only language model retains a causal sequence-processing pattern without requiring that original encoder-decoder arrangement.
+
+The architecture helps process known positions in parallel, but it does not make unknown future tokens available in advance. Once generation starts, the next selected token normally becomes an input required for the following prediction. Parallel training and sequential generation are therefore compatible facts.
+
+This creates two engineering problems. First, how can a system avoid repeating work on the growing prefix? Second, how should it choose from the model's distribution? Caching and decoding answer different parts of that problem.
+
+## Historical evolution
+
+Machine translation helped popularize search-based decoding. Greedy decoding selects the most likely token at each step. Beam search keeps several partial sequences and expands promising alternatives, usually with additional rules for length and completion.
+
+A locally preferred token does not necessarily lead to the highest-probability complete sequence. Beam search attempts a broader search, but its ranking objective is still a design choice. Maximizing modeled sequence probability is not automatically the right objective for an open-ended story or conversation.
+
+Holtzman and colleagues investigated this distinction in work first released in 2019 and published at ICLR 2020. They found that decoding choices could strongly affect generated text, and proposed nucleus sampling to truncate the distribution's less reliable tail while retaining diversity. Their results concern particular models and evaluations, not a universal guarantee for every modern task.
+
+Serving research addressed another bottleneck: memory for request-specific attention state. In 2023, Kwon and colleagues introduced PagedAttention and the vLLM serving system. The work organized key-value cache storage in blocks to reduce waste and support more effective memory sharing and scheduling.
+
+Another 2023 development, grouped-query attention, explored an architectural compromise between separate key-value heads for every query head and a single shared set. This matters because generation performance depends partly on how much cached information must be stored and read.
+
+These developments coexist. A serving engine can combine a cache layout, an attention architecture, and a decoding algorithm. Improving one does not settle the others, and speedups measured for one workload should not be assumed for every deployment.
+
+## Technical explanation
+
+### The prompt is more than the visible message
+
+An application first constructs the input sequence. In a chat product, it may serialize system instructions, conversation roles, earlier messages, and the user's new text through a model-specific chat template. Special tokens can distinguish boundaries and roles.
+
+Tokenization converts that sequence into IDs. The model sees those IDs and associated position information, not the interface's chat bubbles. A missing role delimiter or an unsuitable template can therefore change behavior even when the visible question looks similar.
+
+The context window limits the sequence that a particular configuration can process. Prompt tokens, template tokens, and generated continuation all occupy positions. A serving layer may also impose a smaller operational limit.
+
+A context window is not durable memory. If earlier material is removed, the model cannot directly attend to it on that request. An application may summarize or retrieve it, but those operations create new inputs rather than restoring the original sequence exactly.
+
+### Prefill processes the known prefix
+
+The initial forward pass is commonly called prefill. All prompt tokens are already known, so many position-wise calculations can be performed together. A causal mask still controls which positions can exchange information.
+
+At each transformer layer, the system computes keys and values for the prompt. It retains the necessary key-value tensors for later use. The final prompt position produces logits over possible next tokens.
+
+The first generated token can be selected from those logits. There is no requirement to run an extra full decoding step just to obtain that first choice. After choosing it, the system can stream its text representation while preparing the next prediction.
+
+Time to first token includes more than prefill: queuing, preprocessing, scheduling, and communication can contribute. A slow first response does not by itself identify the model computation as the cause.
+
+### Decoding extends the sequence
+
+After the first choice, the engine feeds the newly selected token through the network. At each layer, its query attends to permitted cached keys, together with its own position's key. The corresponding values provide information for constructing the new representation.
+
+The new keys and values are appended to that request's cache. Its final representation produces another vocabulary distribution. A decoder chooses again, and the cycle continues.
+
+The cache avoids recomputing all earlier keys and values on every step. In an ordinary causal transformer, earlier positions do not depend on later tokens, so adding a token does not require revising their stored representations. Different architectures or cache policies can require different treatment.
+
+Cached generation still performs substantial work. The new token traverses the layers, including their feed-forward computation, and attention must read relevant earlier state. A cache makes past computation reusable; it does not make a long prefix free.
+
+### What the key-value cache contains
+
+The cache stores intermediate tensors for particular sequence positions, not a database of verified facts or the model's weights. It is specific to the prefix and the computation that produced it.
+
+A rough storage estimate for a conventional cache is:
+
+$$
+M=2 L B S H_{kv} d_h b
+$$
+
+M is bytes; L is layer count; B is the number of equally long sequences; S is cached positions per sequence; Hkv is key-value heads; dh is head dimension; and b is bytes per stored element. The leading two accounts for keys and values.
+
+Real engines need additional metadata and buffers. Unequal request lengths require summing their individual storage rather than assuming every sequence uses S positions. Compression, quantization, sliding windows, and specialized architectures can change the estimate.
+
+For an illustrative configuration with 32 layers, 8 key-value heads, head dimension 128, 4,096 cached positions, one sequence, and two-byte elements:
+
+$$
+M=2\times32\times1\times4096\times8\times128\times2
+$$
+
+That is 536,870,912 bytes, or 512 MiB. These are hypothetical architectural settings, not a claim about a named model. Increasing the number of concurrent sequences multiplies this request-state burden.
+
+Grouped-query attention lets multiple query heads share key-value heads. Fewer stored key-value heads can reduce this burden. That is an architectural change; allocating the resulting cache efficiently is a separate serving-system problem.
+
+### Logits do not select themselves
+
+Suppose a toy next-token distribution assigns probabilities 0.50, 0.30, 0.15, and 0.05 to four choices. These numbers describe one position only; they do not rank complete answers.
+
+Greedy decoding always chooses the first token. It is simple and often useful for tasks requiring consistency, but it can miss a better sequence because every choice changes later distributions. It also does not validate whether the chosen token contributes to a true statement.
+
+Sampling instead draws from a distribution. Across many independent draws from this unchanged toy distribution, the second choice would occur approximately 30 percent of the time. During actual generation, each draw usually changes the prefix, so subsequent distributions differ.
+
+Temperature reshapes logits before softmax:
+
+$$
+p_i(T)=\frac{\exp(z_i/T)}{\sum_j\exp(z_j/T)}
+$$
+
+Here zi is a logit and T is positive temperature. Smaller T sharpens differences; larger T flattens them. T equal to one preserves the original softmax distribution. The formula is undefined at zero; systems offering a zero setting usually implement a greedy convention or another special case.
+
+Temperature does not add knowledge or directly control truthfulness. It changes how strongly the decoder favors higher-scoring tokens.
+
+### Top-k and nucleus sampling
+
+Top-k sampling retains a fixed number of the highest-probability tokens, discards the rest, and renormalizes the retained probabilities. A fixed k can be unnecessarily broad when the model is confident and restrictive when many choices are plausible.
+
+Nucleus sampling, often called top-p, retains the smallest leading set whose cumulative probability reaches a chosen threshold. The retained set can therefore vary by position.
+
+With our toy distribution and a threshold of 0.80, the first two tokens are retained. Their probabilities renormalize to 0.625 and 0.375. A threshold of 0.90 needs the first three because the first two provide only 0.80.
+
+Here is a small implementation of the selection step:
+
+```python
+def nucleus(probabilities, threshold):
+    if not 0 < threshold <= 1:
+        raise ValueError("threshold must be in (0, 1]")
+    ranked = sorted(
+        enumerate(probabilities),
+        key=lambda item: item[1],
+        reverse=True,
+    )
+    retained = []
+    total = 0.0
+    for index, probability in ranked:
+        retained.append((index, probability))
+        total += probability
+        if total >= threshold:
+            break
+    return [(index, value / total) for index, value in retained]
+
+print(nucleus([0.50, 0.30, 0.15, 0.05], 0.80))
+# [(0, 0.625), (1, 0.37499999999999994)]
+```
+
+The example assumes a valid normalized distribution and handles neither production batching nor floating-point boundary subtleties. Real implementations also define how temperature, penalties, constraints, and truncation compose. Their order can affect the result.
+
+### Stopping and streaming
+
+A generation loop needs explicit termination conditions. These can include an end-of-sequence token, an end-of-turn marker, a configured output limit, a stop string, cancellation, or an application deadline.
+
+Stopping because an output budget was exhausted is different from the model selecting a completion marker. The application should distinguish these outcomes, particularly when consuming generated code or structured data.
+
+Tokens also do not map neatly onto visible characters. A decoded piece may contain several characters, part of a word, or bytes that require buffering before valid text can be displayed. Streaming transports usually emit convenient chunks rather than guaranteeing one visible word per model step.
+
+The loop may stop in the middle of a sentence or a JSON value. A user interface can hide that boundary; a reliable application must handle it.
+
+## Practical applications
+
+Consider a service that answers questions about technical documentation. A request with a long retrieved context and a short answer can spend much of its model time on prefill. Another request with a short prompt and a long generated explanation can spend much more time in repeated decoding.
+
+Measure these stages separately. Useful metrics include time to first token, time between generated tokens, total request latency, and completed requests per unit time. A single tokens-per-second number can conceal the difference between prompt processing and output generation.
+
+Batching lets several requests share efficient device operations, but requests finish at different times and have different cache needs. Continuous batching schedules work as requests arrive and complete rather than requiring a fixed group to finish together.
+
+Prefix caching can reuse state for an identical compatible prefix, such as shared introductory instructions. Reuse requires matching the relevant tokens and model computation. It is not permission to reuse arbitrary states across different models, positions, or request configurations.
+
+For structured output, sampling settings are only part of the contract. Constrained decoding can restrict eligible tokens according to a grammar or schema. This helps enforce form, but a syntactically valid answer may still contain incorrect values.
+
+A practical evaluation should therefore pair generation settings with task checks: parse the output, compile generated code when appropriate, or compare answers against a reviewed reference. Choose decoding behavior based on measured outcomes rather than assuming that one temperature suits every application.
+
+## Limitations and misconceptions
+
+A fixed random seed does not guarantee identical results across every device, software version, batch schedule, and numerical implementation. Reproducibility requires controlling more than the sampling seed. Even greedy choices can change if tiny numerical differences alter nearly tied logits.
+
+A larger context window does not guarantee equal attention to every detail inside it. Representability and reliable use are different properties. Important constraints buried in a large prompt still need workload-specific evaluation.
+
+A cache is not persistent learning. Removing it does not erase trained knowledge, and keeping it does not update model parameters. It preserves reusable intermediate computation for particular inputs.
+
+Likewise, sampling is not reasoning, and greedy decoding is not a truth filter. Both operate on scores supplied by the model. Changing the selection rule can materially change behavior without adding external evidence.
+
+Finally, memory efficiency and answer quality are separate dimensions. Better cache allocation can let a server admit more requests without changing the model's intended distribution. Other optimizations, such as lower-precision computation or altered attention behavior, can change numerical results and require quality checks.
+
+## What comes next
+
+Generation combines a trained predictor, request-specific state, and a policy for choosing tokens. The visible answer belongs to the whole combination. That is why evaluating only a checkpoint leaves important application behavior unexplained.
+
+We now have a mechanism for producing text efficiently, but it still does not explain why a model should follow instructions, admit uncertainty, or prefer helpful answers over arbitrary continuations.
+
+The next stage changes the training signal after pretraining. Demonstrations and preference feedback can shape the model's behavior, while introducing their own assumptions and failure modes. Decoding determines which available continuation is chosen; post-training changes which continuations the model tends to make available.
+
+### Further reading
+
+- Vaswani et al., "Attention Is All You Need" (2017). The transformer architecture and causal decoder masking: https://arxiv.org/abs/1706.03762
+
+- Holtzman et al., "The Curious Case of Neural Text Degeneration" (ICLR 2020; first released 2019). Decoding behavior and nucleus sampling: https://arxiv.org/abs/1904.09751
+
+- Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention" (2023). Cache allocation and serving with vLLM: https://arxiv.org/abs/2309.06180
+
+- Ainslie et al., "GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints" (2023). Sharing key-value heads across groups of query heads: https://arxiv.org/abs/2305.13245
+
+## Next chapter
+
+### Proposed next chapter
+
+**From Language Models To Assistants: Instruction Tuning, RLHF And Alignment**
+
+A pretrained model can continue text without reliably behaving like a helpful assistant. The next chapter will examine how post-training changes that behavior through demonstrations, preference comparisons, and optimization. We will follow supervised instruction tuning before introducing reward models and reinforcement learning from human feedback. We will also compare that approach with direct preference optimization, explaining what each method tries to improve and what its training signal leaves unmeasured. Concrete examples will show how helpfulness, correctness, and agreement with a reviewer can come apart. This builds on today's distinction between model scores and decoding: post-training changes the scores themselves, while inference settings still influence which answers users receive. We will treat alignment as a collection of operational goals and imperfect methods, rather than a guarantee of good judgment.
+
+1. How does instruction tuning differ from ordinary next-token pretraining?
+2. What do reward models and human preference comparisons actually measure?
+3. Why can optimizing preferences improve assistant behavior while introducing new failure modes?
+
+Would you like to continue with this topic, or would you prefer a different direction?
