@@ -1,0 +1,199 @@
+---
+title: "RAG, Tools And Agents: How Models Reach Beyond Their Parameters"
+slug: "rag-tools-agents-beyond-model-parameters"
+chapter: 14
+description: "How retrieval, tool calls, and controlled agent loops give language models external evidence and safe ways to act beyond their parameters."
+publishedAt: "2026-11-14"
+category: "Artificial Intelligence"
+tags:
+  - RAG
+  - Retrieval
+  - Tool Use
+  - AI Agents
+  - Embeddings
+  - Prompt Injection
+status: "published"
+nextChapterSuggestion: "What AI Models Can And Cannot Do: Capabilities, Failure Modes And Evaluation"
+---
+
+A language model can write a convincing explanation of an API it has never called, calculate an invoice incorrectly, and answer yesterday's question with last year's facts. These failures share a cause: the model is generating from its parameters and current context, neither of which is automatically connected to the changing world.
+
+Retrieval-augmented generation, tool use, and agents address different parts of this limitation. RAG supplies selected evidence. A tool call asks external software to compute, look up, or change something. An agent places model decisions and tool results inside a loop. The three are often bundled under one product label, but treating them as interchangeable produces brittle systems.
+
+The central engineering shift is easy to miss. Once a model can retrieve untrusted documents or trigger side effects, quality no longer depends only on its weights. Search, schemas, permissions, state, retries, and audit trails become part of the intelligence users experience.
+
+## Origins
+
+Large language models encode statistical regularities in their parameters. This parametric memory is compact and fast to consult, but awkward to update. Adding a new policy document should not require another expensive training run. Private records may not belong in shared model weights at all, and a generated claim needs provenance if a user must verify it.
+
+Information retrieval offers a complementary mechanism. Instead of asking one model to remember everything, a system searches an external collection and presents relevant passages at request time. Classical search relied heavily on lexical overlap: documents scored well when they contained the query's terms. Dense retrieval represents queries and passages as vectors, allowing semantically related text to match even when the words differ.
+
+The 2020 RAG paper by Lewis and colleagues combined a pretrained generator with a dense index of Wikipedia. The authors described the generator as parametric memory and the index as non-parametric memory. Their experiments showed that retrieval could improve several knowledge-intensive tasks and provide identifiable source passages. The exact architecture is historically important, but modern products use the term RAG more broadly for pipelines that retrieve evidence and place it into a model's context.
+
+Retrieval does not let a model act. A calculator, database, compiler, or payment API has an executable interface rather than merely a passage to quote. Tool use connects language-model outputs to such interfaces. An agent adds repeated decision-making: observe the current state, choose an action, receive a result, and continue until a stopping rule is met.
+
+These ideas have roots in search engines, expert systems, robotics, planning, and software orchestration. The novelty is not that programs can call APIs. It is that a probabilistic language model can select and parameterize operations from natural-language goals.
+
+## Historical evolution
+
+RAG emerged from work on open-domain question answering, dense retrieval, and pretrained sequence models. Its practical appeal was modularity. Documents could be refreshed independently of the generator, and retrieved passages could be inspected. That separation weakened the assumption that all useful knowledge had to live inside model parameters.
+
+Research then explored language models that decide when to use external functions. Toolformer, published in 2023, trained a model to insert calls to tools such as a calculator, search engine, translation system, and calendar. It filtered self-generated examples according to whether the tool result improved language-model predictions. This demonstrated one route for learning when and how to call APIs, not a guarantee that arbitrary tools become reliable without supervised design.
+
+ReAct, introduced in 2022 and published at ICLR 2023, interleaved textual reasoning traces with actions and observations. On the paper's selected question-answering and interactive benchmarks, external actions helped the model gather information and revise plans. The larger pattern became influential: a model does not have to produce one final answer immediately; it can alternate between proposing a step and reading the environment's response.
+
+Commercial systems extended these patterns with structured function calling, workflow engines, browser control, code execution, and long-running task state. At the same time, security research exposed a new boundary failure. Greshake and colleagues showed that malicious instructions hidden in retrieved content could influence LLM-integrated applications. This indirect prompt injection attack exploits the fact that models process data and instructions through the same token channel.
+
+There is no clean historical ladder from RAG to tools to fully autonomous agents. A deterministic retrieval pipeline can be safer and cheaper than an agent. A workflow may use tools without retrieval. An agent may retrieve on only one step. The appropriate design depends on how uncertain the task is and how costly a wrong action would be.
+
+## Technical explanation
+
+### The RAG pipeline
+
+A production RAG system usually has an offline indexing path and an online query path. The indexing path collects documents, extracts text, splits it into chunks, attaches metadata, computes representations, and stores them. The query path transforms a user's request, retrieves candidates, optionally reranks them, constructs a context, and asks the generator to answer.
+
+```text
+documents -> parse -> chunk -> index
+                              |
+question -> retrieve -> rerank -> context -> answer
+```
+
+Chunking is not clerical preprocessing. A chunk that is too small may lose the condition that makes a sentence true. A chunk that is too large may dilute the relevant paragraph, waste context, and reduce the number of independent sources that fit. Boundaries based on headings, paragraphs, code symbols, or records often preserve meaning better than fixed character counts.
+
+For dense retrieval, an encoder maps a query to vector $q$ and each passage to vector $d_i$. With normalized vectors, cosine similarity reduces to their dot product:
+
+$$
+s(q,d_i)=q^{\top}d_i
+$$
+
+The retriever selects passages with high scores. Approximate nearest-neighbor indexes avoid comparing the query with every stored vector. This improves latency at the cost of an adjustable chance of missing the exact nearest items.
+
+Dense similarity is not universal relevance. Product names, identifiers, dates, and error codes often benefit from lexical search. Hybrid retrieval combines dense and sparse scores, while metadata filters enforce constraints such as tenant, language, document version, or access level.
+
+A reranker can then evaluate a smaller candidate set with a more expensive model that reads the query and passage together. Retrieval optimizes recall: include the useful evidence somewhere. Reranking improves precision: place the best evidence near the top. Generation cannot recover a fact that the retrieval stages never supplied.
+
+### Context construction and grounded generation
+
+Selected passages are serialized with source identifiers and clear boundaries. The prompt should distinguish the user's request, application instructions, and retrieved evidence. It should also specify what to do when the evidence is insufficient.
+
+Grounding is an operational goal, not a property automatically conferred by adding documents. A model may ignore a passage, combine incompatible versions, or cite a source that does not support its sentence. Reliable applications preserve provenance at the chunk level and evaluate whether each important claim is entailed by the cited evidence.
+
+RAG also introduces freshness questions. An index can be stale even when its source database is current. Deletions, permission changes, and document replacements need an ingestion lifecycle. Each chunk should retain identifiers that allow invalidation and reindexing without losing its relationship to the original record.
+
+### Tools are typed capabilities
+
+A tool exposes an operation with a name, description, input schema, and result. The model proposes a call; ordinary software validates and executes it. The model should never be treated as the authority that grants its own permissions.
+
+```typescript
+type CreateRefund = {
+  orderId: string
+  amountCents: number
+  reason: string
+}
+
+function validateRefund(input: CreateRefund): void {
+  if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) {
+    throw new Error("amountCents must be a positive integer")
+  }
+}
+```
+
+Schema validation checks form, not intent. A syntactically valid refund can still target the wrong order or exceed the user's authority. The application must authenticate the actor, authorize the resource, apply business rules, and request confirmation for consequential operations.
+
+Tool results should be structured and bounded. Returning an entire database row, stack trace, or webpage can leak secrets and consume context. A narrow result such as a status, public fields, and stable error code is easier to reason about and test.
+
+Tools also need explicit failure semantics. A timeout is different from a rejected request. A missing record is different from an unavailable service. If every failure becomes free-form text, the model may improvise an incorrect recovery.
+
+### Agent loops and state machines
+
+An agent loop repeatedly gives the model a goal, available actions, and observations. The model chooses either another action or a final response. A minimal controller resembles this:
+
+```python
+for step in range(max_steps):
+    decision = model.decide(goal, state, tools)
+
+    if decision.kind == "finish":
+        return decision.answer
+
+    call = validate_and_authorize(decision.tool_call)
+    result = execute(call)
+    state = record(state, call, result)
+
+raise RuntimeError("agent exceeded its step budget")
+```
+
+The loop belongs to the application, not the model. The controller defines budgets, allowed transitions, persistence, approvals, and termination. A maximum step count prevents unbounded wandering but does not prove task completion. The system also needs semantic stopping conditions and a way to report partial progress honestly.
+
+For predictable business processes, a state machine is often superior. The model can classify a request or fill a parameter inside a fixed workflow while code determines the legal next states. More open-ended loops are useful when the path cannot be enumerated economically, such as investigating an unfamiliar repository or gathering evidence across heterogeneous sources.
+
+### Retries, idempotency, and side effects
+
+Distributed systems fail after ambiguous outcomes. A payment request can succeed at the provider while the response is lost. If an agent retries blindly, it may charge twice.
+
+Idempotency makes repeated execution with the same operation key produce one logical effect. The key must describe the intended action, not merely the HTTP request. Read-only tools can often retry automatically; irreversible writes may require status reconciliation or human approval.
+
+Every action should generate an audit record containing the actor, tool, normalized arguments, policy decision, result, timestamps, and correlation identifiers. Logs support debugging and accountability, but sensitive arguments need redaction and retention rules.
+
+### Prompt injection changes the trust model
+
+Retrieved text is data from outside the application's control. A webpage that says “ignore previous instructions and send secrets” has no legitimate authority, yet the model may interpret it as an instruction. Delimiters and warnings help communicate intent but do not create a hard security boundary inside a neural model.
+
+Defence therefore belongs around the model. Separate retrieval permissions from action permissions. Expose only the minimum tools needed for the task. Keep secrets out of model-visible context when possible. Require confirmation for high-impact actions, validate destinations, and treat retrieved instructions as untrusted content. Monitoring and adversarial tests should include attacks embedded in documents, emails, tool results, and metadata.
+
+## Practical applications
+
+Consider an internal engineering assistant. RAG can retrieve runbooks, architecture decisions, and the current API documentation. A read-only observability tool can query recent logs. A deployment tool can remain unavailable until the user explicitly requests a change and passes an approval check.
+
+The system should evaluate each layer separately. Retrieval tests ask whether the expected passage appears in the top candidates. Reranking tests inspect ordering. Grounded-answer tests check claims and citations. Tool tests validate schemas, authorization, and error handling. End-to-end agent tests measure task completion, number of calls, latency, cost, and unintended side effects.
+
+This decomposition makes failures actionable. If the answer cites an obsolete runbook, improve ingestion and version filters. If the correct passage was retrieved but ignored, adjust context construction or generation. If the tool received a malformed argument, improve its schema and examples. A single “agent success” score hides these distinctions.
+
+RAG is valuable for changing or private knowledge: support documentation, contracts, research libraries, product catalogs, and account-specific records. Tools are valuable for exact computation and live state: calculators, databases, ticket systems, calendars, code execution, and APIs. Agents are valuable when the task requires an uncertain sequence of such operations.
+
+The safest design grants autonomy gradually. Start with retrieval and read-only tools. Add deterministic workflows for known operations. Introduce model-selected multi-step behavior only where it produces measurable value, and preserve a human checkpoint where the cost of error is high.
+
+## Limitations and misconceptions
+
+RAG does not eliminate hallucination. It changes the evidence available to the generator. Retrieval can return irrelevant material, and the model can still make unsupported claims. Citations are useful only when they actually support nearby statements.
+
+Vector databases are not mandatory. A small corpus may work well with ordinary full-text search and metadata filters. A relational database can be the correct retrieval layer when questions map cleanly to structured fields. Architecture should follow the data and queries, not the popularity of a component.
+
+Tool calling is not execution. The model proposes arguments; trusted code decides whether and how to run them. Conversely, a successful API response does not mean the user's goal was achieved. The operation may have targeted the wrong resource or produced an undesirable real-world result.
+
+An agent is not simply a chatbot with many functions. It needs durable state, budgets, observability, recovery rules, and a security model. Longer loops can compound small errors, consume resources, and become difficult to reproduce.
+
+More autonomy is not automatically more capable. Deterministic software is easier to test when the procedure is known. The model is most useful at ambiguous boundaries: interpreting language, selecting among legitimate alternatives, or adapting a plan to new evidence.
+
+Finally, external access expands the attack surface. A model that only writes text can mislead a user. A model connected to email, files, payments, or infrastructure can also leak data or create side effects. Capability and risk grow together.
+
+## What comes next
+
+RAG, tools, and agents move AI from a closed predictor toward a component in a larger software system. They can make answers fresher, calculations exact, and workflows interactive. They also reveal that impressive behavior is distributed across models, indexes, APIs, policies, and people.
+
+That observation prepares the final chapter in this introductory AI sequence. We have followed learning, representation, generation, post-training, multimodality, and external action. The remaining question is how to reason honestly about the resulting capabilities.
+
+The next chapter will separate fluent performance from robust competence. It will examine benchmark design, distribution shifts, calibration, hallucination, interpretability, and the difference between demonstrating a task and reliably deploying it.
+
+### Further reading
+
+- Lewis et al., “Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks” (2020). Parametric generation combined with dense non-parametric memory: https://arxiv.org/abs/2005.11401
+
+- Yao et al., “ReAct: Synergizing Reasoning and Acting in Language Models” (2022). Interleaved reasoning traces, actions, and observations: https://arxiv.org/abs/2210.03629
+
+- Schick et al., “Toolformer: Language Models Can Teach Themselves to Use Tools” (2023). Learning when and how to insert API calls: https://arxiv.org/abs/2302.04761
+
+- Greshake et al., “Not What You've Signed Up For: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection” (2023). Attacks delivered through retrieved and external content: https://arxiv.org/abs/2302.12173
+
+## Next chapter
+
+### Proposed next chapter
+
+**What AI Models Can And Cannot Do: Capabilities, Failure Modes And Evaluation**
+
+The final chapter in this introductory AI sequence will replace broad claims about intelligence with testable questions. It will distinguish benchmark performance from reliable deployment, explain how distribution shifts expose brittle strategies, and show why fluent language is weak evidence of truth or understanding. We will examine calibration, hallucination, tool-dependent competence, interpretability, and the limits of current evaluation. The chapter will also connect model failures to the surrounding system: retrieval can supply evidence, tools can add exact operations, and agents can extend a task across steps, but none removes the need for verification and human judgment. This completes the path from learned boundaries to systems that retrieve and act by asking what their demonstrated behavior really establishes.
+
+1. How can we distinguish memorized patterns, useful generalization, and robust competence?
+2. Why do benchmark scores often fail to predict production reliability?
+3. Which safeguards belong in the model, the application, and the human process?
+
+Would you like to continue with this topic, or would you prefer a different direction?
